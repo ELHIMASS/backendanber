@@ -455,6 +455,84 @@ app.post('/api/submit-order', async (req, res) => {
   }
 });
 
+// Route Contact
+app.post('/api/contact', async (req, res) => {
+  try {
+    const { name, email, subject, message } = req.body;
+    if (!name || !email || !message) {
+      return res.status(400).json({ error: 'Tous les champs obligatoires doivent être remplis' });
+    }
+
+    const mailOptions = {
+      from: `"Contact Anber" <${process.env.SMTP_USER}>`,
+      to: 'contact@elhimass.fr',
+      subject: `Nouveau Message de Contact : ${subject || 'Non spécifié'}`,
+      html: `
+        <div style="font-family: Arial, sans-serif; color: #333; max-width: 600px; margin: 0 auto; background-color: #f9f9f9; padding: 20px; border: 1px solid #eee;">
+          <h2 style="color: #080808; text-align: center; border-bottom: 2px solid #b89758; padding-bottom: 10px;">Nouveau Message de Contact</h2>
+          <div style="background-color: #ffffff; padding: 20px; border-radius: 5px; margin-top: 20px; border: 1px solid #eee;">
+            <p style="margin: 8px 0;"><strong>Nom :</strong> ${name}</p>
+            <p style="margin: 8px 0;"><strong>Email :</strong> <a href="mailto:${email}" style="color: #b89758;">${email}</a></p>
+            <p style="margin: 8px 0;"><strong>Sujet :</strong> ${subject}</p>
+            <div style="padding-bottom: 10px; border-bottom: 1px solid #eee; margin-top: 20px; margin-bottom: 15px;">
+                <h3 style="color: #b89758; margin: 0; font-size: 16px;">Message</h3>
+            </div>
+            <p style="white-space: pre-wrap; color: #555;">${message}</p>
+          </div>
+        </div>
+      `
+    };
+
+    if (process.env.SMTP_HOST && !process.env.SMTP_HOST.includes('smtp.example.com')) {
+      await transporter.sendMail(mailOptions);
+      console.log(`Nouveau message de contact reçu de ${name}`);
+    }
+    
+    res.json({ success: true, message: 'Message envoyé avec succès.' });
+  } catch (error) {
+    console.error('Contact error:', error);
+    res.status(500).json({ error: 'Erreur lors de l\\'envoi du message.' });
+  }
+});
+
+// Route Newsletter
+app.post('/api/newsletter', async (req, res) => {
+  try {
+    const { email } = req.body;
+    if (!email) {
+      return res.status(400).json({ error: 'Email manquant' });
+    }
+
+    const mailOptions = {
+      from: `"Maison Anber" <${process.env.SMTP_USER}>`,
+      to: email,
+      subject: `Bienvenue dans la Maison Anber`,
+      html: `
+        <div style="font-family: 'Times New Roman', Times, serif; color: #111; max-width: 600px; margin: 0 auto; background-color: #fff; padding: 40px 30px; border: 1px solid #eee; text-align: center;">
+          <h2 style="color: #080808; font-variant: small-caps; font-size: 30px; letter-spacing: 2px; margin-bottom: 30px;">Anber</h2>
+          <h3 style="color: #b89758; font-size: 20px;">Merci pour votre inscription !</h3>
+          <p style="font-size: 16px; line-height: 1.8; color: #444; margin-top: 20px;">
+            Vous êtes désormais inscrit(e) à notre infolettre. Vous recevrez très prochainement nos actualités, nos parfums exclusifs et nos conseils beauté parfumée directement dans votre boîte de réception.
+          </p>
+          <p style="font-size: 18px; color: #b89758; margin-top: 40px; font-style: italic;">
+            L'équipe de la Maison Anber
+          </p>
+        </div>
+      `
+    };
+
+    if (process.env.SMTP_HOST && !process.env.SMTP_HOST.includes('smtp.example.com')) {
+      await transporter.sendMail(mailOptions);
+      console.log(`Nouvel inscrit à la newsletter : ${email}`);
+    }
+
+    res.json({ success: true, message: 'Inscription réussie.' });
+  } catch (error) {
+    console.error('Newsletter error:', error);
+    res.status(500).json({ error: 'Erreur lors de l\\'inscription.' });
+  }
+});
+
 // Start server
 // Start server
 app.listen(PORT, () => {
