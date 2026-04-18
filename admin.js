@@ -124,8 +124,19 @@ async function fetchAdminProducts() {
           document.getElementById('edit-sub').value = product.sub || '';
           document.getElementById('edit-desc').value = product.desc || '';
           document.getElementById('edit-notes').value = product.notes ? product.notes.join(', ') : '';
-          document.getElementById('edit-sizes').value = product.sizes ? product.sizes.join(', ') : '';
-          document.getElementById('edit-prices').value = product.prices ? JSON.stringify(product.prices) : '';
+          
+          document.getElementById('edit_price_30ml').value = '';
+          document.getElementById('edit_price_50ml').value = '';
+          document.getElementById('edit_price_75ml').value = '';
+          document.getElementById('edit_price_100ml').value = '';
+          
+          if (product.prices) {
+            for (const [size, price] of Object.entries(product.prices)) {
+              const input = document.getElementById(`edit_price_${size}`);
+              if (input) input.value = price;
+            }
+          }
+          
           document.getElementById('edit-badge').value = product.badge || '';
           
           editProductSection.style.display = 'block';
@@ -149,6 +160,19 @@ addProductForm.addEventListener('submit', async (e) => {
 
   try {
     const formData = new FormData(addProductForm);
+    
+    const sizes = [];
+    const prices = {};
+    ['30ml', '50ml', '75ml', '100ml'].forEach(size => {
+      const priceVal = formData.get(`price_${size}`);
+      if (priceVal) {
+        sizes.push(size);
+        prices[size] = Number(priceVal);
+      }
+      formData.delete(`price_${size}`);
+    });
+    formData.append('sizes', sizes.join(','));
+    formData.append('prices', JSON.stringify(prices));
 
     const res = await fetch(`${API_URL}/admin/products`, {
       method: 'POST',
@@ -183,6 +207,19 @@ editProductForm.addEventListener('submit', async (e) => {
   try {
     const formData = new FormData(editProductForm);
     const id = formData.get('id');
+
+    const sizes = [];
+    const prices = {};
+    ['30ml', '50ml', '75ml', '100ml'].forEach(size => {
+      const priceVal = formData.get(`price_${size}`);
+      if (priceVal) {
+        sizes.push(size);
+        prices[size] = Number(priceVal);
+      }
+      formData.delete(`price_${size}`);
+    });
+    formData.append('sizes', sizes.join(','));
+    formData.append('prices', JSON.stringify(prices));
 
     const res = await fetch(`${API_URL}/admin/products/${id}`, {
       method: 'PUT',
