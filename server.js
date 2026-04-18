@@ -463,12 +463,28 @@ app.post('/api/contact', async (req, res) => {
       return res.status(400).json({ error: 'Tous les champs obligatoires doivent être remplis' });
     }
 
+    const attachments = [];
+    const logoAttachmentPath = path.join(__dirname, 'assets', 'logo', 'logo.png');
+    let hasLogo = false;
+    if (fs.existsSync(logoAttachmentPath)) {
+      attachments.push({
+        filename: 'logo.png',
+        path: logoAttachmentPath,
+        cid: 'logo_anber'
+      });
+      hasLogo = true;
+    }
+
     const mailOptions = {
       from: `"Contact Anber" <${process.env.SMTP_USER}>`,
       to: 'contact@elhimass.fr',
       subject: `Nouveau Message de Contact : ${subject || 'Non spécifié'}`,
+      attachments: attachments,
       html: `
         <div style="font-family: Arial, sans-serif; color: #333; max-width: 600px; margin: 0 auto; background-color: #f9f9f9; padding: 20px; border: 1px solid #eee;">
+          <div style="text-align: center; margin-bottom: 15px;">
+             ${hasLogo ? `<img src="cid:logo_anber" alt="Anber" style="max-height: 60px; margin: 0 auto;" />` : `<h1 style="color: #b89758; font-family: 'Times New Roman', serif; font-variant: small-caps; letter-spacing: 2px; margin: 0;">ANBER</h1>`}
+          </div>
           <h2 style="color: #080808; text-align: center; border-bottom: 2px solid #b89758; padding-bottom: 10px;">Nouveau Message de Contact</h2>
           <div style="background-color: #ffffff; padding: 20px; border-radius: 5px; margin-top: 20px; border: 1px solid #eee;">
             <p style="margin: 8px 0;"><strong>Nom :</strong> ${name}</p>
@@ -503,13 +519,28 @@ app.post('/api/newsletter', async (req, res) => {
       return res.status(400).json({ error: 'Email manquant' });
     }
 
+    const attachments = [];
+    const logoAttachmentPath = path.join(__dirname, 'assets', 'logo', 'logo.png');
+    let hasLogo = false;
+    if (fs.existsSync(logoAttachmentPath)) {
+      attachments.push({
+        filename: 'logo.png',
+        path: logoAttachmentPath,
+        cid: 'logo_anber'
+      });
+      hasLogo = true;
+    }
+
     const mailOptions = {
       from: `"Maison Anber" <${process.env.SMTP_USER}>`,
       to: email,
       subject: `Bienvenue dans la Maison Anber`,
+      attachments: attachments,
       html: `
         <div style="font-family: 'Times New Roman', Times, serif; color: #111; max-width: 600px; margin: 0 auto; background-color: #fff; padding: 40px 30px; border: 1px solid #eee; text-align: center;">
-          <h2 style="color: #080808; font-variant: small-caps; font-size: 30px; letter-spacing: 2px; margin-bottom: 30px;">Anber</h2>
+          <div style="text-align: center; margin-bottom: 30px;">
+             ${hasLogo ? `<img src="cid:logo_anber" alt="Anber" style="max-height: 80px; margin: 0 auto;" />` : `<h2 style="color: #080808; font-variant: small-caps; font-size: 30px; letter-spacing: 2px; margin: 0;">ANBER</h2>`}
+          </div>
           <h3 style="color: #b89758; font-size: 20px;">Merci pour votre inscription !</h3>
           <p style="font-size: 16px; line-height: 1.8; color: #444; margin-top: 20px;">
             Vous êtes désormais inscrit(e) à notre infolettre. Vous recevrez très prochainement nos actualités, nos parfums exclusifs et nos conseils beauté parfumée directement dans votre boîte de réception.
