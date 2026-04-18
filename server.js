@@ -269,7 +269,7 @@ function createInvoice(formData, cartItemsSelected, productsList, totalAmount) {
       cartItemsSelected.forEach((item, index) => {
         const product = productsList.find(p => p.id === item.id);
         if (product) {
-          const unitPrice = product.prices[item.size];
+          const unitPrice = product.prices.get ? product.prices.get(item.size) : product.prices[item.size];
           const itemTotal = unitPrice * item.quantity;
 
           // Fond grisé altérnatif
