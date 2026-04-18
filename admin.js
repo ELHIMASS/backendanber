@@ -45,6 +45,17 @@ const cancelAddBtn = document.getElementById('cancelAddBtn');
 const addProductSection = document.getElementById('addProductSection');
 const addProductForm = document.getElementById('addProductForm');
 
+const editProductSection = document.getElementById('editProductSection');
+const editProductForm = document.getElementById('editProductForm');
+const cancelEditBtn = document.getElementById('cancelEditBtn');
+
+cancelEditBtn.addEventListener('click', () => {
+  editProductSection.style.display = 'none';
+  editProductForm.reset();
+});
+
+let currentProducts = [];
+
 showAddFormBtn.addEventListener('click', () => {
   addProductSection.style.display = 'block';
 });
@@ -62,6 +73,7 @@ async function fetchAdminProducts() {
   try {
     const res = await fetch(`${API_URL}/products`);
     const products = await res.json();
+    currentProducts = products;
 
     productCount.textContent = products.length;
     tbody.innerHTML = '';
@@ -81,6 +93,7 @@ async function fetchAdminProducts() {
         <td>${p.collectionName || p.category}</td>
         <td>${displayPrice} €</td>
         <td>
+          <button class="action-btn edit-btn" style="background-color: #b89758; color: white; border: none; margin-right: 5px; cursor: pointer; padding: 5px 10px; border-radius: 4px;" data-id="${p.id}">Modifier</button>
           <button class="action-btn delete-btn" data-id="${p.id}">Supprimer</button>
         </td>
       `;
@@ -93,6 +106,30 @@ async function fetchAdminProducts() {
         if (confirm('Êtes-vous sûr de vouloir supprimer ce parfum définitivement ?')) {
           const id = e.target.getAttribute('data-id');
           await deleteProduct(id);
+        }
+      });
+    });
+
+    // Add Edit Listeners
+    document.querySelectorAll('.edit-btn').forEach(btn => {
+      btn.addEventListener('click', (e) => {
+        const id = parseInt(e.target.getAttribute('data-id'));
+        const product = currentProducts.find(p => p.id === id);
+        if(product) {
+          document.getElementById('edit-id').value = product.id;
+          document.getElementById('edit-name').value = product.name;
+          document.getElementById('edit-slug').value = product.slug;
+          document.getElementById('edit-collectionName').value = product.collectionName || '';
+          document.getElementById('edit-category').value = product.category || 'orient';
+          document.getElementById('edit-sub').value = product.sub || '';
+          document.getElementById('edit-desc').value = product.desc || '';
+          document.getElementById('edit-notes').value = product.notes ? product.notes.join(', ') : '';
+          document.getElementById('edit-sizes').value = product.sizes ? product.sizes.join(', ') : '';
+          document.getElementById('edit-prices').value = product.prices ? JSON.stringify(product.prices) : '';
+          document.getElementById('edit-badge').value = product.badge || '';
+          
+          editProductSection.style.display = 'block';
+          window.scrollTo(0, 0);
         }
       });
     });
@@ -133,6 +170,40 @@ addProductForm.addEventListener('submit', async (e) => {
   }
 
   submitBtn.textContent = "Créer le produit";
+  submitBtn.disabled = false;
+});
+
+// Edit Product Form Submit
+editProductForm.addEventListener('submit', async (e) => {
+  e.preventDefault();
+  const submitBtn = document.getElementById('submitEditProductBtn');
+  submitBtn.textContent = "Téléversement en cours...";
+  submitBtn.disabled = true;
+
+  try {
+    const formData = new FormData(editProductForm);
+    const id = formData.get('id');
+
+    const res = await fetch(`${API_URL}/admin/products/${id}`, {
+      method: 'PUT',
+      body: formData
+    });
+
+    const data = await res.json();
+    if (data.success) {
+      alert("Parfum modifié avec succès !");
+      editProductForm.reset();
+      editProductSection.style.display = 'none';
+      fetchAdminProducts();
+    } else {
+      alert("Erreur: " + data.error);
+    }
+  } catch (err) {
+    console.error(err);
+    alert("Erreur réseau ou serveur.");
+  }
+
+  submitBtn.textContent = "Enregistrer les modifications";
   submitBtn.disabled = false;
 });
 
