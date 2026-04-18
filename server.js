@@ -5,9 +5,44 @@ const nodemailer = require('nodemailer');
 const path = require('path');
 const PDFDocument = require('pdfkit');
 const fs = require('fs');
+const mongoose = require('mongoose');
+const { v2: cloudinary } = require('cloudinary');
+const multer = require('multer');
+const { CloudinaryStorage } = require('multer-storage-cloudinary');
+const Product = require('./models/Product');
 
 const app = express();
 const PORT = process.env.PORT || 3001;
+
+// Cloudinary Configuration
+cloudinary.config({
+  cloud_name: process.env.CLOUDINARY_CLOUD_NAME,
+  api_key: process.env.CLOUDINARY_API_KEY,
+  api_secret: process.env.CLOUDINARY_API_SECRET
+});
+
+const storage = new CloudinaryStorage({
+  cloudinary: cloudinary,
+  params: {
+    folder: 'anber_products',
+    allowed_formats: ['jpg', 'png', 'jpeg', 'webp'],
+  },
+});
+const upload = multer({ storage: storage });
+
+// Database Connection
+mongoose.connect(process.env.MONGO_URI, { useNewUrlParser: true, useUnifiedTopology: true })
+  .then(async () => {
+    console.log('✅ Connecté à MongoDB Atlas');
+    // Seed initial products if DB is empty
+    const count = await Product.countDocuments();
+    if (count === 0) {
+      console.log('🌱 Amorçage de la base de données avec les produits initiaux...');
+      await Product.insertMany(initialProductsData);
+      console.log('✅ Base de données amorcée !');
+    }
+  })
+  .catch((err) => console.error('❌ Erreur de connexion MongoDB:', err));
 
 // Middleware
 app.use(cors({
@@ -28,8 +63,8 @@ const transporter = nodemailer.createTransport({
   },
 });
 
-// Products data (same as frontend)
-const products = [
+// Initial Products data (used for DB seeding if empty)
+const initialProductsData = [
   {
     id: 1,
     slug: 'sauvage',
@@ -282,7 +317,51 @@ function createInvoice(formData, cartItemsSelected, productsList, totalAmount) {
   });
 }
 
-// Routes
+// Admin Routes (CRUD)
+
+// 1. Ajouter un produit (avec image via Cloudinary)
+app.post('/api/admin/products', upload.single('image'), async (req, res) => {
+  try {
+    const { id, slug, name, collectionName, category, sub, desc, notes, sizes, prices, badge } = req.body;
+    const imageUrl = req.file ? req.file.path : null;
+
+    if (!imageUrl) return res.status(400).json({ error: "L'image est requise." });
+
+    const newProduct = new Product({
+      id: Number(id),
+      slug,
+      name,
+      collectionName,
+      category,
+      sub,
+      desc,
+      notes: notes.split(',').map(n => n.trim()), // attend une string virgulée
+      sizes: sizes.split(',').map(s => s.trim()), // attend une string virgulée
+      prices: JSON.parse(prices), // attend un objet JSON en string {"50ml": 100}
+      badge: badge || null,
+      image: imageUrl,
+      images: [imageUrl]
+    });
+
+    await newProduct.save();
+    res.status(201).json({ success: true, product: newProduct });
+  } catch (error) {
+    console.error("Admin add product error:", error);
+    res.status(500).json({ error: "Erreur lors de l'ajout du produit" });
+  }
+});
+
+// 2. Supprimer un produit
+app.delete('/api/admin/products/:id', async (req, res) => {
+  try {
+    await Product.findOneAndDelete({ id: req.params.id });
+    res.json({ success: true, message: 'Produit supprimé' });
+  } catch (error) {
+    res.status(500).json({ error: "Erreur lors de la suppression" });
+  }
+});
+
+// Routes Publiques
 
 // Health check
 app.get('/api/health', (req, res) => {
@@ -290,8 +369,13 @@ app.get('/api/health', (req, res) => {
 });
 
 // Get products
-app.get('/api/products', (req, res) => {
-  res.json(products);
+app.get('/api/products', async (req, res) => {
+  try {
+    const products = await Product.find({}).sort({ id: 1 });
+    res.json(products);
+  } catch (err) {
+    res.status(500).json({ error: "Database error" });
+  }
 });
 
 // Submit Order Route
@@ -302,6 +386,9 @@ app.post('/api/submit-order', async (req, res) => {
     if (!cartItems || cartItems.length === 0) {
       return res.status(400).json({ error: 'Le panier est vide' });
     }
+    
+    // Fetch latest products from MongoDB for price validation
+    const productsList = await Product.find({});
 
     if (!formData || !formData.firstName || !formData.lastName || !formData.email || !formData.phone || !formData.address) {
       return res.status(400).json({ error: 'Informations de contact manquantes' });
@@ -324,9 +411,9 @@ app.post('/api/submit-order', async (req, res) => {
     }
 
     cartItems.forEach((item, index) => {
-      const product = products.find(p => p.id === item.id);
+      const product = productsList.find(p => p.id === item.id);
       if (product) {
-        const itemTotal = product.prices[item.size] * item.quantity;
+        const itemTotal = product.prices.get(item.size) * item.quantity;
         totalAmount += itemTotal;
 
         let imageUrl = product.image;
@@ -335,18 +422,24 @@ app.post('/api/submit-order', async (req, res) => {
         }
 
         const cid = `img_${index}`;
-        const itemImagePath = path.join(__dirname, imageUrl);
         let imageHtml = '';
 
-        if (fs.existsSync(itemImagePath)) {
-          attachments.push({
-            filename: `product_${index}.jpg`,
-            path: itemImagePath,
-            cid: cid
-          });
-          imageHtml = `<img src="cid:${cid}" alt="${product.name}" style="width: 80px; height: auto; border-radius: 4px; object-fit: cover; border: 1px solid #eee;" />`;
+        if (imageUrl.startsWith('http')) {
+          // It's a cloudinary URL (no attachment needed, use direct URL)
+          imageHtml = `<img src="${imageUrl}" alt="${product.name}" style="width: 80px; height: auto; border-radius: 4px; object-fit: cover; border: 1px solid #eee;" />`;
         } else {
-          imageHtml = `<div style="width: 80px; height: 80px; background-color: #f5f5f5; border-radius: 4px; border: 1px solid #eee; text-align: center; line-height: 80px; color: #aaa; font-size: 10px;">Anber</div>`;
+          // Legacy local asset
+          const itemImagePath = path.join(__dirname, imageUrl);
+          if (fs.existsSync(itemImagePath)) {
+            attachments.push({
+              filename: `product_${index}.jpg`,
+              path: itemImagePath,
+              cid: cid
+            });
+            imageHtml = `<img src="cid:${cid}" alt="${product.name}" style="width: 80px; height: auto; border-radius: 4px; object-fit: cover; border: 1px solid #eee;" />`;
+          } else {
+            imageHtml = `<div style="width: 80px; height: 80px; background-color: #f5f5f5; border-radius: 4px; border: 1px solid #eee; text-align: center; line-height: 80px; color: #aaa; font-size: 10px;">Anber</div>`;
+          }
         }
 
         itemsHtml += `
@@ -410,7 +503,7 @@ app.post('/api/submit-order', async (req, res) => {
     };
 
     // Génération du PDF pour le client
-    const invoiceBuffer = await createInvoice(formData, cartItems, products, totalAmount);
+    const invoiceBuffer = await createInvoice(formData, cartItems, productsList, totalAmount);
 
     const customerMailOptions = {
       from: `"Maison Anber" <${process.env.SMTP_USER}>`,
