@@ -361,6 +361,44 @@ app.delete('/api/admin/products/:id', async (req, res) => {
   }
 });
 
+// 3. Modifier un produit
+app.put('/api/admin/products/:id', upload.single('image'), async (req, res) => {
+  try {
+    const { slug, name, collectionName, category, sub, desc, notes, sizes, prices, badge } = req.body;
+    
+    // On trouve le produit
+    const product = await Product.findOne({ id: req.params.id });
+    if (!product) return res.status(404).json({ error: "Produit introuvable" });
+
+    // On met à jour chaque champ s'il a été fourni
+    if (slug) product.slug = slug;
+    if (name) product.name = name;
+    if (collectionName) product.collectionName = collectionName;
+    if (category) product.category = category;
+    if (sub) product.sub = sub;
+    if (desc) product.desc = desc;
+    if (notes) product.notes = notes.split(',').map(n => n.trim());
+    if (sizes) product.sizes = sizes.split(',').map(s => s.trim());
+    if (prices) product.prices = JSON.parse(prices);
+    product.badge = badge || null; // badge can be empty
+
+    // Si une nouvelle image a été envoyée
+    if (req.file) {
+      product.image = req.file.path;
+      // Optionnel: ajouter à images array si on le souhaite, on garde simple pour l'instant
+      if (!product.images.includes(req.file.path)) {
+         product.images.unshift(req.file.path);
+      }
+    }
+
+    await product.save();
+    res.json({ success: true, product });
+  } catch (error) {
+    console.error("Admin update product error:", error);
+    res.status(500).json({ error: "Erreur lors de la modification du produit" });
+  }
+});
+
 // Routes Publiques
 
 // Health check
