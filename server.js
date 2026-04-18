@@ -4,6 +4,7 @@ require('dotenv').config();
 const nodemailer = require('nodemailer');
 const path = require('path');
 const PDFDocument = require('pdfkit');
+const fs = require('fs');
 
 const app = express();
 const PORT = process.env.PORT || 3001;
@@ -310,12 +311,17 @@ app.post('/api/submit-order', async (req, res) => {
     let itemsHtml = '';
     const attachments = [];
 
-    // Ajouter le logo
-    attachments.push({
-      filename: 'logo.png',
-      path: path.join(__dirname, '..', 'assets', 'logo', 'logo.png'),
-      cid: 'logo_anber'
-    });
+    // Ajouter le logo avec vérification
+    const logoAttachmentPath = path.join(__dirname, '..', 'assets', 'logo', 'logo.png');
+    let hasLogo = false;
+    if (fs.existsSync(logoAttachmentPath)) {
+      attachments.push({
+        filename: 'logo.png',
+        path: logoAttachmentPath,
+        cid: 'logo_anber'
+      });
+      hasLogo = true;
+    }
     
     cartItems.forEach((item, index) => {
       const product = products.find(p => p.id === item.id);
@@ -329,16 +335,24 @@ app.post('/api/submit-order', async (req, res) => {
         }
 
         const cid = `img_${index}`;
-        attachments.push({
-          filename: `product_${index}.jpg`,
-          path: path.join(__dirname, '..', imageUrl),
-          cid: cid
-        });
+        const itemImagePath = path.join(__dirname, '..', imageUrl);
+        let imageHtml = '';
+
+        if (fs.existsSync(itemImagePath)) {
+          attachments.push({
+            filename: `product_${index}.jpg`,
+            path: itemImagePath,
+            cid: cid
+          });
+          imageHtml = `<img src="cid:${cid}" alt="${product.name}" style="width: 80px; height: auto; border-radius: 4px; object-fit: cover; border: 1px solid #eee;" />`;
+        } else {
+          imageHtml = `<div style="width: 80px; height: 80px; background-color: #f5f5f5; border-radius: 4px; border: 1px solid #eee; text-align: center; line-height: 80px; color: #aaa; font-size: 10px;">Anber</div>`;
+        }
         
         itemsHtml += `
           <tr>
             <td style="padding: 10px; border-bottom: 1px solid #ddd; width: 100px;">
-              <img src="cid:${cid}" alt="${product.name}" style="width: 80px; height: auto; border-radius: 4px; object-fit: cover; border: 1px solid #eee;" />
+              ${imageHtml}
             </td>
             <td style="padding: 10px; border-bottom: 1px solid #ddd;">
               <strong style="color: #b89758; font-size: 16px;">${product.name}</strong><br/>
@@ -360,7 +374,7 @@ app.post('/api/submit-order', async (req, res) => {
       html: `
         <div style="font-family: Arial, sans-serif; color: #333; max-width: 600px; margin: 0 auto; background-color: #f9f9f9; padding: 20px; border: 1px solid #eee;">
           <div style="text-align: center; margin-bottom: 15px;">
-             <img src="cid:logo_anber" alt="Anber" style="max-height: 80px; margin: 0 auto; border-radius: 5px;" />
+             ${hasLogo ? `<img src="cid:logo_anber" alt="Anber" style="max-height: 80px; margin: 0 auto; border-radius: 5px;" />` : `<h1 style="color: #b89758; margin: 0; font-family: 'Times New Roman', serif; font-variant: small-caps; letter-spacing: 2px;">ANBER</h1>`}
           </div>
           <h2 style="color: #080808; text-align: center; border-bottom: 2px solid #b89758; padding-bottom: 10px;">Nouvelle Commande</h2>
           
