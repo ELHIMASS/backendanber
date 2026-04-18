@@ -164,7 +164,7 @@ function createInvoice(formData, cartItemsSelected, productsList, totalAmount) {
       doc.rect(0, 0, doc.page.width, 140).fill('#fcfbf9');
 
       // En-tête (Logo)
-      const logoPath = path.join(__dirname, '..', 'assets', 'logo', 'logo.png');
+      const logoPath = path.join(__dirname, 'assets', 'logo', 'logo.png');
       try {
         doc.image(logoPath, 50, 30, { width: 80 });
       } catch (e) {
@@ -312,7 +312,7 @@ app.post('/api/submit-order', async (req, res) => {
     const attachments = [];
 
     // Ajouter le logo avec vérification
-    const logoAttachmentPath = path.join(__dirname, '..', 'assets', 'logo', 'logo.png');
+    const logoAttachmentPath = path.join(__dirname, 'assets', 'logo', 'logo.png');
     let hasLogo = false;
     if (fs.existsSync(logoAttachmentPath)) {
       attachments.push({
@@ -335,7 +335,7 @@ app.post('/api/submit-order', async (req, res) => {
         }
 
         const cid = `img_${index}`;
-        const itemImagePath = path.join(__dirname, '..', imageUrl);
+        const itemImagePath = path.join(__dirname, imageUrl);
         let imageHtml = '';
 
         if (fs.existsSync(itemImagePath)) {
