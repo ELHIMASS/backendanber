@@ -170,47 +170,47 @@ function createInvoice(formData, cartItemsSelected, productsList, totalAmount) {
       } catch (e) {
         // Logo introuvable
       }
-      
+
       // Titre Facture
       doc.fillColor(goldColor)
-         .font('Helvetica-Bold')
-         .fontSize(32)
-         .text('FACTURE', 0, 40, { align: 'right', width: doc.page.width - 50 })
-         .fillColor('#888888')
-         .font('Helvetica')
-         .fontSize(10)
-         .text(`Référence : ${invoiceNumber}`, 0, 80, { align: 'right', width: doc.page.width - 50 })
-         .text(`Date : ${new Date().toLocaleDateString('fr-FR')}`, 0, 95, { align: 'right', width: doc.page.width - 50 });
+        .font('Helvetica-Bold')
+        .fontSize(32)
+        .text('FACTURE', 0, 40, { align: 'right', width: doc.page.width - 50 })
+        .fillColor('#888888')
+        .font('Helvetica')
+        .fontSize(10)
+        .text(`Référence : ${invoiceNumber}`, 0, 80, { align: 'right', width: doc.page.width - 50 })
+        .text(`Date : ${new Date().toLocaleDateString('fr-FR')}`, 0, 95, { align: 'right', width: doc.page.width - 50 });
 
       // Info Maison Anber (Gauche)
       const infoY = 180;
       doc.fillColor(goldColor)
-         .font('Helvetica-Bold')
-         .fontSize(16)
-         .text('MAISON ANBER', 50, infoY)
-         .fillColor(textColor)
-         .font('Helvetica')
-         .fontSize(11)
-         .text('Boutique Officielle', 50, infoY + 25)
-         .text('Créateur de Parfums', 50, infoY + 40)
-         .text('contact@elhimass.fr', 50, infoY + 55);
+        .font('Helvetica-Bold')
+        .fontSize(16)
+        .text('MAISON ANBER', 50, infoY)
+        .fillColor(textColor)
+        .font('Helvetica')
+        .fontSize(11)
+        .text('Boutique Officielle', 50, infoY + 25)
+        .text('Créateur de Parfums', 50, infoY + 40)
+        .text('contact@elhimass.fr', 50, infoY + 55);
 
       // Facturé à : (Droite)
       doc.rect(doc.page.width - 270, infoY - 15, 220, 100).fillAndStroke('#ffffff', '#eeeeee');
-      
+
       doc.fillColor(goldColor)
-         .font('Helvetica-Bold')
-         .fontSize(10)
-         .text('FACTURÉ À', doc.page.width - 250, infoY )
-         .fillColor(textColor)
-         .font('Helvetica-Bold')
-         .fontSize(12)
-         .text(`${formData.firstName} ${formData.lastName}`.toUpperCase(), doc.page.width - 250, infoY + 20)
-         .font('Helvetica')
-         .fontSize(10)
-         .text(formData.address, doc.page.width - 250, infoY + 38)
-         .text(`${formData.postalCode} ${formData.city}`, doc.page.width - 250, infoY + 52)
-         .text(`Tél : ${formData.phone}`, doc.page.width - 250, infoY + 66);
+        .font('Helvetica-Bold')
+        .fontSize(10)
+        .text('FACTURÉ À', doc.page.width - 250, infoY)
+        .fillColor(textColor)
+        .font('Helvetica-Bold')
+        .fontSize(12)
+        .text(`${formData.firstName} ${formData.lastName}`.toUpperCase(), doc.page.width - 250, infoY + 20)
+        .font('Helvetica')
+        .fontSize(10)
+        .text(formData.address, doc.page.width - 250, infoY + 38)
+        .text(`${formData.postalCode} ${formData.city}`, doc.page.width - 250, infoY + 52)
+        .text(`Tél : ${formData.phone}`, doc.page.width - 250, infoY + 66);
 
       // Ligne de séparation
       doc.moveTo(50, 330).lineTo(doc.page.width - 50, 330).lineWidth(1).strokeColor('#eeeeee').stroke();
@@ -218,15 +218,15 @@ function createInvoice(formData, cartItemsSelected, productsList, totalAmount) {
       // Tableau (En-tête) coloré
       const tableTop = 360;
       doc.rect(50, tableTop - 10, doc.page.width - 100, 30).fill(goldColor);
-      
+
       doc.fillColor('#ffffff')
-         .font('Helvetica-Bold')
-         .fontSize(10)
-         .text('DESCRIPTION', 60, tableTop)
-         .text('CONT.', 270, tableTop)
-         .text('QTÉ', 350, tableTop, { width: 50, align: 'center' })
-         .text('PRIX UNIT.', 400, tableTop, { width: 70, align: 'right' })
-         .text('TOTAL', 480, tableTop, { width: 60, align: 'right' });
+        .font('Helvetica-Bold')
+        .fontSize(10)
+        .text('DESCRIPTION', 60, tableTop)
+        .text('CONT.', 270, tableTop)
+        .text('QTÉ', 350, tableTop, { width: 50, align: 'center' })
+        .text('PRIX UNIT.', 400, tableTop, { width: 70, align: 'right' })
+        .text('TOTAL', 480, tableTop, { width: 60, align: 'right' });
 
       let y = tableTop + 35;
       doc.font('Helvetica');
@@ -239,18 +239,18 @@ function createInvoice(formData, cartItemsSelected, productsList, totalAmount) {
 
           // Fond grisé altérnatif
           if (index % 2 !== 0) {
-             doc.rect(50, y - 8, doc.page.width - 100, 25).fill('#f9f9f9');
+            doc.rect(50, y - 8, doc.page.width - 100, 25).fill('#f9f9f9');
           }
 
           doc.fillColor(textColor)
-             .text(product.name, 60, y)
-             .text(item.size, 270, y)
-             .text(item.quantity.toString(), 350, y, { width: 50, align: 'center' })
-             .text(`${unitPrice} €`, 400, y, { width: 70, align: 'right' })
-             .font('Helvetica-Bold')
-             .text(`${itemTotal} €`, 480, y, { width: 60, align: 'right' })
-             .font('Helvetica');
-          
+            .text(product.name, 60, y)
+            .text(item.size, 270, y)
+            .text(item.quantity.toString(), 350, y, { width: 50, align: 'center' })
+            .text(`${unitPrice} €`, 400, y, { width: 70, align: 'right' })
+            .font('Helvetica-Bold')
+            .text(`${itemTotal} €`, 480, y, { width: 60, align: 'right' })
+            .font('Helvetica');
+
           y += 25;
         }
       });
@@ -260,21 +260,21 @@ function createInvoice(formData, cartItemsSelected, productsList, totalAmount) {
       // Total Calculation Box
       y += 30;
       doc.rect(doc.page.width - 250, y - 10, 200, 45).fill('#fcfbf9');
-      
+
       doc.fillColor(textColor)
-         .font('Helvetica-Bold')
-         .fontSize(12)
-         .text('TOTAL À PAYER', doc.page.width - 230, y + 5)
-         .fillColor(goldColor)
-         .fontSize(16)
-         .text(`${totalAmount} €`, 400, y + 3, { width: 130, align: 'right' });
+        .font('Helvetica-Bold')
+        .fontSize(12)
+        .text('TOTAL À PAYER', doc.page.width - 230, y + 5)
+        .fillColor(goldColor)
+        .fontSize(16)
+        .text(`${totalAmount} €`, 400, y + 3, { width: 130, align: 'right' });
 
       // Pied de page
       doc.fillColor('#999999')
-         .fontSize(10)
-         .font('Helvetica-Oblique')
-         .text('La Maison Anber vous remercie de votre confiance. En cas de question, contactez notre service client.', 0, 780, { align: 'center', width: doc.page.width });
-         
+        .fontSize(10)
+        .font('Helvetica-Oblique')
+        .text('La Maison Anber vous remercie de votre confiance. En cas de question, contactez notre service client.', 0, 780, { align: 'center', width: doc.page.width });
+
       doc.end();
     } catch (err) {
       reject(err);
@@ -302,7 +302,7 @@ app.post('/api/submit-order', async (req, res) => {
     if (!cartItems || cartItems.length === 0) {
       return res.status(400).json({ error: 'Le panier est vide' });
     }
-    
+
     if (!formData || !formData.firstName || !formData.lastName || !formData.email || !formData.phone || !formData.address) {
       return res.status(400).json({ error: 'Informations de contact manquantes' });
     }
@@ -322,16 +322,16 @@ app.post('/api/submit-order', async (req, res) => {
       });
       hasLogo = true;
     }
-    
+
     cartItems.forEach((item, index) => {
       const product = products.find(p => p.id === item.id);
       if (product) {
         const itemTotal = product.prices[item.size] * item.quantity;
         totalAmount += itemTotal;
-        
+
         let imageUrl = product.image;
-        if(imageUrl.startsWith('./')) {
-           imageUrl = imageUrl.substring(2);
+        if (imageUrl.startsWith('./')) {
+          imageUrl = imageUrl.substring(2);
         }
 
         const cid = `img_${index}`;
@@ -348,7 +348,7 @@ app.post('/api/submit-order', async (req, res) => {
         } else {
           imageHtml = `<div style="width: 80px; height: 80px; background-color: #f5f5f5; border-radius: 4px; border: 1px solid #eee; text-align: center; line-height: 80px; color: #aaa; font-size: 10px;">Anber</div>`;
         }
-        
+
         itemsHtml += `
           <tr>
             <td style="padding: 10px; border-bottom: 1px solid #ddd; width: 100px;">
@@ -439,7 +439,7 @@ app.post('/api/submit-order', async (req, res) => {
       `
     };
 
-    if(process.env.SMTP_HOST && process.env.SMTP_USER && !process.env.SMTP_HOST.includes('smtp.example.com')) {
+    if (process.env.SMTP_HOST && process.env.SMTP_USER && !process.env.SMTP_HOST.includes('smtp.example.com')) {
       await transporter.sendMail(mailOptions);
       await transporter.sendMail(customerMailOptions);
       console.log(`Commande et remerciements envoyés par email pour ${formData.firstName} ${formData.lastName}`);
@@ -487,11 +487,11 @@ app.post('/api/contact', async (req, res) => {
       await transporter.sendMail(mailOptions);
       console.log(`Nouveau message de contact reçu de ${name}`);
     }
-    
+
     res.json({ success: true, message: 'Message envoyé avec succès.' });
   } catch (error) {
     console.error('Contact error:', error);
-    res.status(500).json({ error: 'Erreur lors de l\\'envoi du message.' });
+    res.status(500).json({ error: 'Erreur lors de l\'envoi du message.' });
   }
 });
 
@@ -529,7 +529,7 @@ app.post('/api/newsletter', async (req, res) => {
     res.json({ success: true, message: 'Inscription réussie.' });
   } catch (error) {
     console.error('Newsletter error:', error);
-    res.status(500).json({ error: 'Erreur lors de l\\'inscription.' });
+    res.status(500).json({ error: 'Erreur lors de l\'inscription.' });
   }
 });
 
@@ -541,8 +541,8 @@ app.listen(PORT, () => {
 
   // Check API configuration
   const smtpConfigured = process.env.SMTP_HOST && !process.env.SMTP_HOST.includes('smtp.example.com');
-  
-  if(smtpConfigured) {
+
+  if (smtpConfigured) {
     console.log('✅ Configuration SMTP pour l\'envoi de mail: Configuré');
   } else {
     console.log('❌ Configuration SMTP pour l\'envoi de mail: Non configuré (Les mails seront simulés dans la console)');
