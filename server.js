@@ -31,7 +31,7 @@ const storage = new CloudinaryStorage({
 const upload = multer({ storage: storage });
 
 // Database Connection
-mongoose.connect(process.env.MONGO_URI, { useNewUrlParser: true, useUnifiedTopology: true })
+mongoose.connect(process.env.MONGO_URI)
   .then(async () => {
     console.log('✅ Connecté à MongoDB Atlas');
     // Seed initial products if DB is empty
