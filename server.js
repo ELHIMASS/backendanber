@@ -10,6 +10,7 @@ const { v2: cloudinary } = require('cloudinary');
 const multer = require('multer');
 const { CloudinaryStorage } = require('multer-storage-cloudinary');
 const Product = require('./models/Product');
+const Promo = require('./models/Promo');
 
 const app = express();
 const PORT = process.env.PORT || 3001;
@@ -179,8 +180,8 @@ const initialProductsData = [
   },
 ];
 
-// Helper pour générer le PDF
-function createInvoice(formData, cartItemsSelected, productsList, totalAmount) {
+// --- Helper: Générer la facture PDF (avec logo optionnel) ---
+function createInvoice(formData, cartItemsSelected, productsList, totalAmount, discountData = null) {
   return new Promise((resolve, reject) => {
     try {
       const doc = new PDFDocument({ margin: 0, size: 'A4' }); // Suppression des marges globales pour dessiner les fonds colorés
@@ -292,8 +293,20 @@ function createInvoice(formData, cartItemsSelected, productsList, totalAmount) {
 
       doc.moveTo(50, y + 10).lineTo(doc.page.width - 50, y + 10).lineWidth(2).strokeColor('#eeeeee').stroke();
 
-      // Total Calculation Box
       y += 30;
+
+      if (discountData) {
+        doc.rect(doc.page.width - 280, y - 10, 230, 25).fill('#f9f9f9');
+        doc.fillColor(goldColor)
+           .font('Helvetica-Bold')
+           .fontSize(10)
+           .text(`CODE PROMO (${discountData.code})`, doc.page.width - 270, y, { width: 150, align: 'left' })
+           .fillColor('#d97a00')
+           .text(`-${discountData.percentage}%`, doc.page.width - 110, y, { width: 60, align: 'right' });
+        y += 35;
+      }
+
+      // Total Calculation Box
       doc.rect(doc.page.width - 250, y - 10, 200, 45).fill('#fcfbf9');
 
       doc.fillColor(textColor)
@@ -338,6 +351,7 @@ app.post('/api/admin/products', upload.single('image'), async (req, res) => {
       notes: notes.split(',').map(n => n.trim()), // attend une string virgulée
       sizes: sizes.split(',').map(s => s.trim()), // attend une string virgulée
       prices: JSON.parse(prices), // attend un objet JSON en string {"50ml": 100}
+      stock: req.body.stock ? JSON.parse(req.body.stock) : {},
       badge: badge || null,
       image: imageUrl,
       images: [imageUrl]
@@ -380,6 +394,7 @@ app.put('/api/admin/products/:id', upload.single('image'), async (req, res) => {
     if (notes) product.notes = notes.split(',').map(n => n.trim());
     if (sizes) product.sizes = sizes.split(',').map(s => s.trim());
     if (prices) product.prices = JSON.parse(prices);
+    if (req.body.stock) product.stock = JSON.parse(req.body.stock);
     product.badge = badge || null; // badge can be empty
 
     // Si une nouvelle image a été envoyée
@@ -396,6 +411,37 @@ app.put('/api/admin/products/:id', upload.single('image'), async (req, res) => {
   } catch (error) {
     console.error("Admin update product error:", error);
     res.status(500).json({ error: "Erreur lors de la modification du produit" });
+  }
+});
+
+// 4. Promo codes crud
+app.get('/api/admin/promos', async (req, res) => {
+  try {
+    const promos = await Promo.find({}).sort({ createdAt: -1 });
+    res.json(promos);
+  } catch (err) {
+    res.status(500).json({ error: "Error fetching promos" });
+  }
+});
+
+app.post('/api/admin/promos', async (req, res) => {
+  try {
+    const { code, discountPercentage } = req.body;
+    const newPromo = new Promo({ code, discountPercentage });
+    await newPromo.save();
+    res.status(201).json({ success: true, promo: newPromo });
+  } catch (err) {
+    if (err.code === 11000) return res.status(400).json({ error: "Ce code existe déjà" });
+    res.status(500).json({ error: "Erreur serveur" });
+  }
+});
+
+app.delete('/api/admin/promos/:id', async (req, res) => {
+  try {
+    await Promo.findByIdAndDelete(req.params.id);
+    res.json({ success: true });
+  } catch (err) {
+    res.status(500).json({ error: "Erreur serveur" });
   }
 });
 
@@ -416,6 +462,19 @@ app.get('/api/products', async (req, res) => {
   }
 });
 
+// Validate Promo Route (Public)
+app.get('/api/promos/validate/:code', async (req, res) => {
+  try {
+    const promo = await Promo.findOne({ code: req.params.code.toUpperCase(), isActive: true });
+    if (!promo) {
+      return res.status(404).json({ error: "Code promo invalide ou expiré" });
+    }
+    res.json({ success: true, percentage: promo.discountPercentage });
+  } catch (err) {
+    res.status(500).json({ error: "Server error" });
+  }
+});
+
 // Submit Order Route
 app.post('/api/submit-order', async (req, res) => {
   try {
@@ -427,6 +486,29 @@ app.post('/api/submit-order', async (req, res) => {
     
     // Fetch latest products from MongoDB for price validation
     const productsList = await Product.find({});
+
+    // Vérification et déduction des stocks
+    for (const item of cartItems) {
+      const product = productsList.find(p => p.id === item.id);
+      if (product && product.stock && product.stock.has(item.size)) {
+        const currentStock = Number(product.stock.get(item.size));
+        if (currentStock < item.quantity && currentStock !== -1) {
+          return res.status(400).json({ error: `Rupture de stock pour ${product.name} (${item.size}). Reste: ${currentStock}` });
+        }
+      }
+    }
+    
+    // Si tout est ok, on déduit
+    for (const item of cartItems) {
+      const product = productsList.find(p => p.id === item.id);
+      if (product && product.stock && product.stock.has(item.size)) {
+        const currentStock = Number(product.stock.get(item.size));
+        if(currentStock !== -1) { // -1 signifie infini si besoin
+           product.stock.set(item.size, currentStock - item.quantity);
+           await product.save();
+        }
+      }
+    }
 
     if (!formData || !formData.firstName || !formData.lastName || !formData.email || !formData.phone || !formData.address) {
       return res.status(400).json({ error: 'Informations de contact manquantes' });
@@ -497,6 +579,27 @@ app.post('/api/submit-order', async (req, res) => {
       }
     });
 
+    let discountData = null;
+    let promoHtml = '';
+    if (promoCode) {
+      const activePromo = await Promo.findOne({ code: promoCode.toUpperCase(), isActive: true });
+      if (activePromo) {
+        discountData = {
+          code: activePromo.code,
+          percentage: activePromo.discountPercentage,
+          amount: (totalAmount * activePromo.discountPercentage) / 100
+        };
+        const subTotal = totalAmount;
+        totalAmount = subTotal - discountData.amount;
+        promoHtml = `
+          <tr>
+            <td colspan="3" style="padding: 10px; text-align: right; background-color: #f9f9f9;">Code promo appliqué (${discountData.code}):</td>
+            <td style="padding: 10px; text-align: right; color: #d97a00; background-color: #f9f9f9;"><strong>-${discountData.percentage}%</strong></td>
+          </tr>
+        `;
+      }
+    }
+
     const mailOptions = {
       from: `"Boutique Anber" <${process.env.SMTP_USER}>`,
       to: 'contact@elhimass.fr',
@@ -526,9 +629,10 @@ app.post('/api/submit-order', async (req, res) => {
             </div>
             <table style="width: 100%; border-collapse: collapse; text-align: left;">
               ${itemsHtml}
+              ${promoHtml}
               <tr>
                 <td colspan="3" style="padding: 15px 10px; text-align: right; background-color: #fcfbf9;"><strong>Total à Payer:</strong></td>
-                <td style="padding: 15px 10px; text-align: right; background-color: #fcfbf9;"><strong style="font-size: 18px; color: #b89758;">${totalAmount} €</strong></td>
+                <td style="padding: 15px 10px; text-align: right; background-color: #fcfbf9;"><strong style="font-size: 18px; color: #b89758;">${totalAmount.toFixed(2)} €</strong></td>
               </tr>
             </table>
           </div>
@@ -541,7 +645,7 @@ app.post('/api/submit-order', async (req, res) => {
     };
 
     // Génération du PDF pour le client
-    const invoiceBuffer = await createInvoice(formData, cartItems, productsList, totalAmount);
+    const invoiceBuffer = await createInvoice(formData, cartItems, productsList, totalAmount, discountData);
 
     const customerMailOptions = {
       from: `"Maison Anber" <${process.env.SMTP_USER}>`,

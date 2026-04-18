@@ -14,6 +14,10 @@ const productSchema = new mongoose.Schema({
     type: Map,
     of: Number
   },
+  stock: {
+    type: Map,
+    of: Number
+  },
   badge: { type: String, default: null },
   rating: { type: String, default: '5/5' },
   image: { type: String, required: true },
