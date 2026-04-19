@@ -26,7 +26,7 @@ const storage = new CloudinaryStorage({
   cloudinary: cloudinary,
   params: {
     folder: 'anber_products',
-    allowed_formats: ['jpg', 'png', 'jpeg', 'webp'],
+    resource_type: 'auto',
   },
 });
 const upload = multer({ storage: storage });
@@ -332,13 +332,22 @@ function createInvoice(formData, cartItemsSelected, productsList, totalAmount, d
 
 // Admin Routes (CRUD)
 
-// 1. Ajouter un produit (avec image via Cloudinary)
-app.post('/api/admin/products', upload.single('image'), async (req, res) => {
+// 1. Ajouter un produit (avec images via Cloudinary)
+app.post('/api/admin/products', upload.fields([
+  { name: 'image', maxCount: 1 },
+  { name: 'media', maxCount: 10 }
+]), async (req, res) => {
   try {
     const { id, slug, name, collectionName, category, sub, desc, notes, sizes, prices, badge } = req.body;
-    const imageUrl = req.file ? req.file.path : null;
+    
+    const imageUrl = (req.files && req.files['image']) ? req.files['image'][0].path : null;
+    const mediaUrls = (req.files && req.files['media']) ? req.files['media'].map(f => f.path) : [];
 
-    if (!imageUrl) return res.status(400).json({ error: "L'image est requise." });
+    if (!imageUrl && mediaUrls.length === 0) return res.status(400).json({ error: "L'image principale est requise." });
+    
+    // Si l'image principale n'est pas fournie mais que des médias le sont, on utilise le premier média.
+    const finalMainImage = imageUrl || mediaUrls[0];
+    const allImages = imageUrl ? [imageUrl, ...mediaUrls] : mediaUrls;
 
     const newProduct = new Product({
       id: Number(id),
@@ -353,8 +362,8 @@ app.post('/api/admin/products', upload.single('image'), async (req, res) => {
       prices: JSON.parse(prices), // attend un objet JSON en string {"50ml": 100}
       stock: req.body.stock ? JSON.parse(req.body.stock) : {},
       badge: badge || null,
-      image: imageUrl,
-      images: [imageUrl]
+      image: finalMainImage,
+      images: allImages
     });
 
     await newProduct.save();
@@ -376,7 +385,10 @@ app.delete('/api/admin/products/:id', async (req, res) => {
 });
 
 // 3. Modifier un produit
-app.put('/api/admin/products/:id', upload.single('image'), async (req, res) => {
+app.put('/api/admin/products/:id', upload.fields([
+  { name: 'image', maxCount: 1 },
+  { name: 'media', maxCount: 10 }
+]), async (req, res) => {
   try {
     const { slug, name, collectionName, category, sub, desc, notes, sizes, prices, badge } = req.body;
     
@@ -397,13 +409,21 @@ app.put('/api/admin/products/:id', upload.single('image'), async (req, res) => {
     if (req.body.stock) product.stock = JSON.parse(req.body.stock);
     product.badge = badge || null; // badge can be empty
 
-    // Si une nouvelle image a été envoyée
-    if (req.file) {
-      product.image = req.file.path;
-      // Optionnel: ajouter à images array si on le souhaite, on garde simple pour l'instant
-      if (!product.images.includes(req.file.path)) {
-         product.images.unshift(req.file.path);
+    // Récupération des médias envoyés
+    const imageUrl = (req.files && req.files['image']) ? req.files['image'][0].path : null;
+    const mediaUrls = (req.files && req.files['media']) ? req.files['media'].map(f => f.path) : [];
+
+    // Si une nouvelle image principale a été envoyée
+    if (imageUrl) {
+      product.image = imageUrl;
+      if (!product.images.includes(imageUrl)) {
+        product.images.push(imageUrl);
       }
+    }
+    
+    // Si de nouveaux médias additionnels sont envoyés
+    if (mediaUrls.length > 0) {
+      product.images.push(...mediaUrls);
     }
 
     await product.save();
