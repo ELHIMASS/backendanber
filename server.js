@@ -52,10 +52,12 @@ mongoose.connect(process.env.MONGO_URI)
 
 // Middleware
 app.use(cors({
-  origin: '*',
+  origin: true,
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
-  allowedHeaders: ['Content-Type', 'Authorization']
+  allowedHeaders: ['Content-Type', 'Authorization'],
+  credentials: true
 }));
+app.options('*', cors());
 app.use(express.json());
 
 // Transporter configuration (SMTP options will be loaded from .env)
