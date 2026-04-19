@@ -18,7 +18,7 @@ const jwt = require('jsonwebtoken');
 const { OAuth2Client } = require('google-auth-library');
 
 const JWT_SECRET = process.env.JWT_SECRET || 'secret_anber_luxury_key_2026';
-const GOOGLE_CLIENT_ID = process.env.GOOGLE_CLIENT_ID || '';
+const GOOGLE_CLIENT_ID = process.env.GOOGLE_CLIENT_ID || '536648074224-6v684nitrdgave4n9cd5ovgk4396g8em.apps.googleusercontent.com';
 const googleClient = new OAuth2Client(GOOGLE_CLIENT_ID);
 
 const app = express();
