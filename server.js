@@ -282,9 +282,9 @@ function createInvoice(formData, cartItemsSelected, productsList, totalAmount, d
             .text(product.name, 60, y)
             .text(item.size, 270, y)
             .text(item.quantity.toString(), 350, y, { width: 50, align: 'center' })
-            .text(`${unitPrice} €`, 400, y, { width: 70, align: 'right' })
+            .text(`${unitPrice} MAD`, 400, y, { width: 70, align: 'right' })
             .font('Helvetica-Bold')
-            .text(`${itemTotal} €`, 480, y, { width: 60, align: 'right' })
+            .text(`${itemTotal} MAD`, 480, y, { width: 60, align: 'right' })
             .font('Helvetica');
 
           y += 25;
@@ -298,11 +298,11 @@ function createInvoice(formData, cartItemsSelected, productsList, totalAmount, d
       if (discountData) {
         doc.rect(doc.page.width - 280, y - 10, 230, 25).fill('#f9f9f9');
         doc.fillColor(goldColor)
-           .font('Helvetica-Bold')
-           .fontSize(10)
-           .text(`CODE PROMO (${discountData.code})`, doc.page.width - 270, y, { width: 150, align: 'left' })
-           .fillColor('#d97a00')
-           .text(`-${discountData.percentage}%`, doc.page.width - 110, y, { width: 60, align: 'right' });
+          .font('Helvetica-Bold')
+          .fontSize(10)
+          .text(`CODE PROMO (${discountData.code})`, doc.page.width - 270, y, { width: 150, align: 'left' })
+          .fillColor('#d97a00')
+          .text(`-${discountData.percentage}%`, doc.page.width - 110, y, { width: 60, align: 'right' });
         y += 35;
       }
 
@@ -315,7 +315,7 @@ function createInvoice(formData, cartItemsSelected, productsList, totalAmount, d
         .text('TOTAL À PAYER', doc.page.width - 230, y + 5)
         .fillColor(goldColor)
         .fontSize(16)
-        .text(`${totalAmount} €`, 400, y + 3, { width: 130, align: 'right' });
+        .text(`${totalAmount} MAD`, 400, y + 3, { width: 130, align: 'right' });
 
       // Pied de page
       doc.fillColor('#999999')
@@ -339,12 +339,12 @@ app.post('/api/admin/products', upload.fields([
 ]), async (req, res) => {
   try {
     const { id, slug, name, collectionName, category, sub, desc, notes, sizes, prices, badge } = req.body;
-    
+
     const imageUrl = (req.files && req.files['image']) ? req.files['image'][0].path : null;
     const mediaUrls = (req.files && req.files['media']) ? req.files['media'].map(f => f.path) : [];
 
     if (!imageUrl && mediaUrls.length === 0) return res.status(400).json({ error: "L'image principale est requise." });
-    
+
     // Si l'image principale n'est pas fournie mais que des médias le sont, on utilise le premier média.
     const finalMainImage = imageUrl || mediaUrls[0];
     const allImages = imageUrl ? [imageUrl, ...mediaUrls] : mediaUrls;
@@ -391,7 +391,7 @@ app.put('/api/admin/products/:id', upload.fields([
 ]), async (req, res) => {
   try {
     const { slug, name, collectionName, category, sub, desc, notes, sizes, prices, badge } = req.body;
-    
+
     // On trouve le produit
     const product = await Product.findOne({ id: req.params.id });
     if (!product) return res.status(404).json({ error: "Produit introuvable" });
@@ -430,7 +430,7 @@ app.put('/api/admin/products/:id', upload.fields([
         product.image = product.images[0];
       }
     }
-    
+
     // Si de nouveaux médias additionnels sont envoyés
     if (mediaUrls.length > 0) {
       product.images.push(...mediaUrls);
@@ -513,7 +513,7 @@ app.post('/api/submit-order', async (req, res) => {
     if (!cartItems || cartItems.length === 0) {
       return res.status(400).json({ error: 'Le panier est vide' });
     }
-    
+
     // Fetch latest products from MongoDB for price validation
     const productsList = await Product.find({});
 
@@ -527,15 +527,15 @@ app.post('/api/submit-order', async (req, res) => {
         }
       }
     }
-    
+
     // Si tout est ok, on déduit
     for (const item of cartItems) {
       const product = productsList.find(p => p.id === item.id);
       if (product && product.stock && product.stock.has(item.size)) {
         const currentStock = Number(product.stock.get(item.size));
-        if(currentStock !== -1) { // -1 signifie infini si besoin
-           product.stock.set(item.size, currentStock - item.quantity);
-           await product.save();
+        if (currentStock !== -1) { // -1 signifie infini si besoin
+          product.stock.set(item.size, currentStock - item.quantity);
+          await product.save();
         }
       }
     }
@@ -603,7 +603,7 @@ app.post('/api/submit-order', async (req, res) => {
               <span style="color: #666;">Contenance: ${item.size}</span>
             </td>
             <td style="padding: 10px; border-bottom: 1px solid #ddd; text-align: center;">x ${item.quantity}</td>
-            <td style="padding: 10px; border-bottom: 1px solid #ddd; text-align: right;"><strong>${itemTotal} €</strong></td>
+            <td style="padding: 10px; border-bottom: 1px solid #ddd; text-align: right;"><strong>${itemTotal} MAD</strong></td>
           </tr>
         `;
       }
@@ -662,7 +662,7 @@ app.post('/api/submit-order', async (req, res) => {
               ${promoHtml}
               <tr>
                 <td colspan="3" style="padding: 15px 10px; text-align: right; background-color: #fcfbf9;"><strong>Total à Payer:</strong></td>
-                <td style="padding: 15px 10px; text-align: right; background-color: #fcfbf9;"><strong style="font-size: 18px; color: #b89758;">${totalAmount.toFixed(2)} €</strong></td>
+                <td style="padding: 15px 10px; text-align: right; background-color: #fcfbf9;"><strong style="font-size: 18px; color: #b89758;">${totalAmount.toFixed(2)} MAD</strong></td>
               </tr>
             </table>
           </div>
