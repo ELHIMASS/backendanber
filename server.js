@@ -409,15 +409,25 @@ app.put('/api/admin/products/:id', upload.fields([
     if (req.body.stock) product.stock = JSON.parse(req.body.stock);
     product.badge = badge || null; // badge can be empty
 
-    // Récupération des médias envoyés
+    // On met à jour le tableau avec les images conservées par l'utilisateur
+    if (req.body.remainingImages) {
+      product.images = JSON.parse(req.body.remainingImages);
+    }
+
+    // Récupération des nouveaux médias uploadés envoyés
     const imageUrl = (req.files && req.files['image']) ? req.files['image'][0].path : null;
     const mediaUrls = (req.files && req.files['media']) ? req.files['media'].map(f => f.path) : [];
 
-    // Si une nouvelle image principale a été envoyée
+    // Si on upload une nouvelle image principale, elle de vient la n°1
     if (imageUrl) {
       product.image = imageUrl;
       if (!product.images.includes(imageUrl)) {
-        product.images.push(imageUrl);
+        product.images.unshift(imageUrl);
+      }
+    } else {
+      // Sinon, on s'assure que product.image correspond à la miniature n°1 de la galerie, s'il en reste.
+      if (product.images.length > 0) {
+        product.image = product.images[0];
       }
     }
     
