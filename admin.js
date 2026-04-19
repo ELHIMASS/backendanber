@@ -91,7 +91,7 @@ async function fetchAdminProducts() {
         <td><img src="${p.image}" class="prod-img" alt="${p.name}"></td>
         <td><strong>${p.name}</strong><br><small>${p.sub}</small></td>
         <td>${p.collectionName || p.category}</td>
-        <td>${displayPrice} €</td>
+        <td>${displayPrice} MAD</td>
         <td>
           <button class="action-btn edit-btn" style="background-color: #b89758; color: white; border: none; margin-right: 5px; cursor: pointer; padding: 5px 10px; border-radius: 4px;" data-id="${p.id}">Modifier</button>
           <button class="action-btn delete-btn" data-id="${p.id}">Supprimer</button>
@@ -115,7 +115,7 @@ async function fetchAdminProducts() {
       btn.addEventListener('click', (e) => {
         const id = parseInt(e.target.getAttribute('data-id'));
         const product = currentProducts.find(p => p.id === id);
-        if(product) {
+        if (product) {
           document.getElementById('edit-id').value = product.id;
           document.getElementById('edit-name').value = product.name;
           document.getElementById('edit-slug').value = product.slug;
@@ -124,21 +124,21 @@ async function fetchAdminProducts() {
           document.getElementById('edit-sub').value = product.sub || '';
           document.getElementById('edit-desc').value = product.desc || '';
           document.getElementById('edit-notes').value = product.notes ? product.notes.join(', ') : '';
-          
+
           document.getElementById('edit_price_30ml').value = '';
           document.getElementById('edit_price_50ml').value = '';
           document.getElementById('edit_price_75ml').value = '';
           document.getElementById('edit_price_100ml').value = '';
-          
+
           if (product.prices) {
             for (const [size, price] of Object.entries(product.prices)) {
               const input = document.getElementById(`edit_price_${size}`);
               if (input) input.value = price;
             }
           }
-          
+
           document.getElementById('edit-badge').value = product.badge || '';
-          
+
           editProductSection.style.display = 'block';
           window.scrollTo(0, 0);
         }
@@ -160,7 +160,7 @@ addProductForm.addEventListener('submit', async (e) => {
 
   try {
     const formData = new FormData(addProductForm);
-    
+
     const sizes = [];
     const prices = {};
     ['30ml', '50ml', '75ml', '100ml'].forEach(size => {
