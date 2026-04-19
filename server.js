@@ -435,6 +435,19 @@ app.get('/api/auth/orders', authMiddleware, async (req, res) => {
 });
 // --------------------------------
 
+// Update user address
+app.put('/api/auth/address', authMiddleware, async (req, res) => {
+  try {
+    const { phone, address, postalCode, city } = req.body;
+    const user = await User.findByIdAndUpdate(req.user.id, { phone, address, postalCode, city }, { new: true }).select('-password');
+    res.json({ success: true, user });
+  } catch (err) {
+    res.status(500).json({ error: "Erreur serveur" });
+  }
+});
+
+// --------------------------------
+
 // Admin Routes — Clients & Orders Management
 
 // Get all clients (sans mot de passe)

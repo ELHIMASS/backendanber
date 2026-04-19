@@ -49,6 +49,22 @@ const userSchema = new mongoose.Schema({
     enum: ['client', 'admin'],
     default: 'client',
   },
+  phone: {
+    type: String,
+    default: '',
+  },
+  address: {
+    type: String,
+    default: '',
+  },
+  postalCode: {
+    type: String,
+    default: '',
+  },
+  city: {
+    type: String,
+    default: '',
+  },
   createdAt: {
     type: Date,
     default: Date.now,
