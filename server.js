@@ -435,6 +435,54 @@ app.get('/api/auth/orders', authMiddleware, async (req, res) => {
 });
 // --------------------------------
 
+// Admin Routes — Clients & Orders Management
+
+// Get all clients (sans mot de passe)
+app.get('/api/admin/clients', async (req, res) => {
+  try {
+    const users = await User.find({}).select('-password').sort({ createdAt: -1 });
+    res.json({ success: true, users });
+  } catch (err) {
+    res.status(500).json({ error: "Erreur serveur" });
+  }
+});
+
+// Get orders for a specific client
+app.get('/api/admin/clients/:userId/orders', async (req, res) => {
+  try {
+    const orders = await Order.find({ userId: req.params.userId }).sort({ createdAt: -1 });
+    res.json({ success: true, orders });
+  } catch (err) {
+    res.status(500).json({ error: "Erreur serveur" });
+  }
+});
+
+// Get all orders (admin)
+app.get('/api/admin/orders', async (req, res) => {
+  try {
+    const orders = await Order.find({}).sort({ createdAt: -1 });
+    res.json({ success: true, orders });
+  } catch (err) {
+    res.status(500).json({ error: "Erreur serveur" });
+  }
+});
+
+// Update order status
+app.put('/api/admin/orders/:orderId/status', async (req, res) => {
+  try {
+    const { status } = req.body;
+    const validStatuses = ['pending', 'confirmed', 'shipped', 'delivered'];
+    if (!validStatuses.includes(status)) {
+      return res.status(400).json({ error: "Statut invalide" });
+    }
+    const order = await Order.findByIdAndUpdate(req.params.orderId, { status }, { new: true });
+    if (!order) return res.status(404).json({ error: "Commande introuvable" });
+    res.json({ success: true, order });
+  } catch (err) {
+    res.status(500).json({ error: "Erreur serveur" });
+  }
+});
+
 // Admin Routes (CRUD)
 
 // 1. Ajouter un produit (avec images via Cloudinary)
