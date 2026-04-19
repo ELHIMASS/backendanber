@@ -478,7 +478,7 @@ app.get('/api/promos/validate/:code', async (req, res) => {
 // Submit Order Route
 app.post('/api/submit-order', async (req, res) => {
   try {
-    const { formData, cartItems } = req.body;
+    const { formData, cartItems, promoCode } = req.body;
 
     if (!cartItems || cartItems.length === 0) {
       return res.status(400).json({ error: 'Le panier est vide' });
