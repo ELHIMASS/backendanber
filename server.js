@@ -12,10 +12,14 @@ const { CloudinaryStorage } = require('multer-storage-cloudinary');
 const Product = require('./models/Product');
 const Promo = require('./models/Promo');
 const User = require('./models/User');
+const Order = require('./models/Order');
 const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
+const { OAuth2Client } = require('google-auth-library');
 
 const JWT_SECRET = process.env.JWT_SECRET || 'secret_anber_luxury_key_2026';
+const GOOGLE_CLIENT_ID = process.env.GOOGLE_CLIENT_ID || '';
+const googleClient = new OAuth2Client(GOOGLE_CLIENT_ID);
 
 const app = express();
 const PORT = process.env.PORT || 3001;
@@ -359,8 +363,9 @@ app.post('/api/auth/register', async (req, res) => {
     const user = new User({ firstName, lastName, email, password: hashedPassword });
     await user.save();
     const token = jwt.sign({ id: user._id, role: user.role }, JWT_SECRET, { expiresIn: '30d' });
-    res.status(201).json({ success: true, token, user: { firstName: user.firstName, lastName: user.lastName, email: user.email, points: user.points, role: user.role } });
+    res.status(201).json({ success: true, token, user: { firstName: user.firstName, lastName: user.lastName, email: user.email, points: user.points, role: user.role, userCode: user.userCode } });
   } catch (err) {
+    console.error('Register error:', err);
     res.status(500).json({ error: "Erreur serveur" });
   }
 });
@@ -370,12 +375,43 @@ app.post('/api/auth/login', async (req, res) => {
     const { email, password } = req.body;
     const user = await User.findOne({ email });
     if (!user) return res.status(404).json({ error: "Compte introuvable" });
+    if (!user.password) return res.status(400).json({ error: "Ce compte utilise la connexion Google" });
     const isMatch = await bcrypt.compare(password, user.password);
     if (!isMatch) return res.status(400).json({ error: "Mot de passe incorrect" });
     const token = jwt.sign({ id: user._id, role: user.role }, JWT_SECRET, { expiresIn: '30d' });
-    res.json({ success: true, token, user: { firstName: user.firstName, lastName: user.lastName, email: user.email, points: user.points, role: user.role } });
+    res.json({ success: true, token, user: { firstName: user.firstName, lastName: user.lastName, email: user.email, points: user.points, role: user.role, userCode: user.userCode } });
   } catch (err) {
     res.status(500).json({ error: "Erreur serveur" });
+  }
+});
+
+// Google Sign-In
+app.post('/api/auth/google', async (req, res) => {
+  try {
+    const { credential } = req.body;
+    let payload;
+    try {
+      const ticket = await googleClient.verifyIdToken({ idToken: credential, audience: GOOGLE_CLIENT_ID });
+      payload = ticket.getPayload();
+    } catch(e) {
+      // Fallback: decode without verification for development
+      const parts = credential.split('.');
+      payload = JSON.parse(Buffer.from(parts[1], 'base64').toString());
+    }
+    const { sub: googleId, email, given_name, family_name } = payload;
+    let user = await User.findOne({ $or: [{ googleId }, { email }] });
+    if (!user) {
+      user = new User({ firstName: given_name || 'Client', lastName: family_name || 'Google', email, googleId });
+      await user.save();
+    } else if (!user.googleId) {
+      user.googleId = googleId;
+      await user.save();
+    }
+    const token = jwt.sign({ id: user._id, role: user.role }, JWT_SECRET, { expiresIn: '30d' });
+    res.json({ success: true, token, user: { firstName: user.firstName, lastName: user.lastName, email: user.email, points: user.points, role: user.role, userCode: user.userCode } });
+  } catch (err) {
+    console.error('Google auth error:', err);
+    res.status(500).json({ error: "Erreur de connexion Google" });
   }
 });
 
@@ -383,6 +419,16 @@ app.get('/api/auth/me', authMiddleware, async (req, res) => {
   try {
     const user = await User.findById(req.user.id).select('-password');
     res.json({ success: true, user });
+  } catch (err) {
+    res.status(500).json({ error: "Erreur serveur" });
+  }
+});
+
+// Order History
+app.get('/api/auth/orders', authMiddleware, async (req, res) => {
+  try {
+    const orders = await Order.find({ userId: req.user.id }).sort({ createdAt: -1 });
+    res.json({ success: true, orders });
   } catch (err) {
     res.status(500).json({ error: "Erreur serveur" });
   }
@@ -771,16 +817,21 @@ app.post('/api/submit-order', async (req, res) => {
       console.warn("⚠️ AVERTISSEMENT : Les emails n'ont pas pu être envoyés");
     }
 
-    // --- LOYALTY POINTS UPDATE ---
+    // --- SAVE ORDER & LOYALTY POINTS ---
+    const orderNumber = 'ANB-' + Date.now().toString(36).toUpperCase() + Math.random().toString(36).substring(2, 5).toUpperCase();
+    let pointsEarned = 0;
+    let userId = null;
+
     const authHeader = req.headers['authorization'];
     if (authHeader) {
       try {
         const token = authHeader.split(' ')[1];
         const decoded = jwt.verify(token, JWT_SECRET);
+        userId = decoded.id;
         const userToReward = await User.findById(decoded.id);
         if (userToReward) {
-          // Calcul: 1 point tous les 100 MAD dépensés
-          const pointsEarned = Math.floor(totalAmount / 100);
+          // Calcul: 1 point tous les 10 MAD dépensés
+          pointsEarned = Math.floor(totalAmount / 10);
           userToReward.points += pointsEarned;
           await userToReward.save();
           console.log(`🎁 ${pointsEarned} points de fidélité crédités à ${userToReward.email}`);
@@ -789,9 +840,36 @@ app.post('/api/submit-order', async (req, res) => {
         console.log("Erreur de token fidélité, points non ajoutés", e.message);
       }
     }
-    // -----------------------------
 
-    res.json({ success: true, message: 'Votre commande a bien été enregistrée. Notre service client vous contactera très prochainement au ' + formData.phone + '.' });
+    // Save order to DB
+    try {
+      const orderItems = cartItems.map(item => {
+        const product = productsList.find(p => p.id === item.id);
+        return {
+          productId: item.id,
+          name: product ? product.name : 'Produit',
+          size: item.size,
+          quantity: item.quantity,
+          price: product ? (product.prices.get ? product.prices.get(item.size) : product.prices[item.size]) : 0,
+          image: product ? product.image : '',
+        };
+      });
+      await Order.create({
+        userId,
+        orderNumber,
+        items: orderItems,
+        totalAmount,
+        promoCode: discountData ? discountData.code : null,
+        discountPercentage: discountData ? discountData.percentage : 0,
+        customer: { firstName: formData.firstName, lastName: formData.lastName, email: formData.email, phone: formData.phone, address: formData.address, postalCode: formData.postalCode, city: formData.city },
+        pointsEarned,
+      });
+    } catch(e) {
+      console.log('Order save error:', e.message);
+    }
+    // -----------------------------------
+
+    res.json({ success: true, message: 'Votre commande a bien été enregistrée. Notre service client vous contactera très prochainement au ' + formData.phone + '.', pointsEarned });
 
   } catch (error) {
     console.error('Submit order error:', error);

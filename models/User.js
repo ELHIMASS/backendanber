@@ -1,5 +1,14 @@
 const mongoose = require('mongoose');
 
+function generateUserCode() {
+  const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
+  let code = 'ANB-';
+  for (let i = 0; i < 6; i++) {
+    code += chars.charAt(Math.floor(Math.random() * chars.length));
+  }
+  return code;
+}
+
 const userSchema = new mongoose.Schema({
   firstName: {
     type: String,
@@ -20,7 +29,16 @@ const userSchema = new mongoose.Schema({
   },
   password: {
     type: String,
-    required: true,
+    default: null, // null for Google-only accounts
+  },
+  googleId: {
+    type: String,
+    default: null,
+  },
+  userCode: {
+    type: String,
+    unique: true,
+    default: generateUserCode,
   },
   points: {
     type: Number,
