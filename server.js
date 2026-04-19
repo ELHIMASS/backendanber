@@ -11,6 +11,11 @@ const multer = require('multer');
 const { CloudinaryStorage } = require('multer-storage-cloudinary');
 const Product = require('./models/Product');
 const Promo = require('./models/Promo');
+const User = require('./models/User');
+const bcrypt = require('bcryptjs');
+const jwt = require('jsonwebtoken');
+
+const JWT_SECRET = process.env.JWT_SECRET || 'secret_anber_luxury_key_2026';
 
 const app = express();
 const PORT = process.env.PORT || 3001;
@@ -329,6 +334,58 @@ function createInvoice(formData, cartItemsSelected, productsList, totalAmount, d
     }
   });
 }
+
+// --- AUTHENTICATION & LOYALTY ---
+const authMiddleware = (req, res, next) => {
+  const token = req.headers['authorization'];
+  if (!token) return res.status(401).json({ error: "Non autorisé" });
+  try {
+    const decoded = jwt.verify(token.split(' ')[1], JWT_SECRET);
+    req.user = decoded;
+    next();
+  } catch (e) {
+    res.status(401).json({ error: "Token invalide" });
+  }
+};
+
+app.post('/api/auth/register', async (req, res) => {
+  try {
+    const { firstName, lastName, email, password } = req.body;
+    const existing = await User.findOne({ email });
+    if (existing) return res.status(400).json({ error: "Email déjà utilisé" });
+    const hashedPassword = await bcrypt.hash(password, 10);
+    const user = new User({ firstName, lastName, email, password: hashedPassword });
+    await user.save();
+    const token = jwt.sign({ id: user._id, role: user.role }, JWT_SECRET, { expiresIn: '30d' });
+    res.status(201).json({ success: true, token, user: { firstName: user.firstName, lastName: user.lastName, email: user.email, points: user.points, role: user.role } });
+  } catch (err) {
+    res.status(500).json({ error: "Erreur serveur" });
+  }
+});
+
+app.post('/api/auth/login', async (req, res) => {
+  try {
+    const { email, password } = req.body;
+    const user = await User.findOne({ email });
+    if (!user) return res.status(404).json({ error: "Compte introuvable" });
+    const isMatch = await bcrypt.compare(password, user.password);
+    if (!isMatch) return res.status(400).json({ error: "Mot de passe incorrect" });
+    const token = jwt.sign({ id: user._id, role: user.role }, JWT_SECRET, { expiresIn: '30d' });
+    res.json({ success: true, token, user: { firstName: user.firstName, lastName: user.lastName, email: user.email, points: user.points, role: user.role } });
+  } catch (err) {
+    res.status(500).json({ error: "Erreur serveur" });
+  }
+});
+
+app.get('/api/auth/me', authMiddleware, async (req, res) => {
+  try {
+    const user = await User.findById(req.user.id).select('-password');
+    res.json({ success: true, user });
+  } catch (err) {
+    res.status(500).json({ error: "Erreur serveur" });
+  }
+});
+// --------------------------------
 
 // Admin Routes (CRUD)
 
@@ -711,6 +768,26 @@ app.post('/api/submit-order', async (req, res) => {
     } else {
       console.warn("⚠️ AVERTISSEMENT : Les emails n'ont pas pu être envoyés");
     }
+
+    // --- LOYALTY POINTS UPDATE ---
+    const authHeader = req.headers['authorization'];
+    if (authHeader) {
+      try {
+        const token = authHeader.split(' ')[1];
+        const decoded = jwt.verify(token, JWT_SECRET);
+        const userToReward = await User.findById(decoded.id);
+        if (userToReward) {
+          // Calcul: 1 point tous les 100 MAD dépensés
+          const pointsEarned = Math.floor(totalAmount / 100);
+          userToReward.points += pointsEarned;
+          await userToReward.save();
+          console.log(`🎁 ${pointsEarned} points de fidélité crédités à ${userToReward.email}`);
+        }
+      } catch(e) {
+        console.log("Erreur de token fidélité, points non ajoutés", e.message);
+      }
+    }
+    // -----------------------------
 
     res.json({ success: true, message: 'Votre commande a bien été enregistrée. Notre service client vous contactera très prochainement au ' + formData.phone + '.' });
 
