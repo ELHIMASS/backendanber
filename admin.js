@@ -1,4 +1,4 @@
-const API_URL = 'http://localhost:3001/api'; // Modifier pour la prod si besoin
+const API_URL = 'https://backendanber.onrender.com/api'; // Modifier pour du dev local si besoin
 
 function getAuthHeaders() {
   const token = localStorage.getItem('anber_admin_token');
@@ -267,10 +267,7 @@ editProductForm.addEventListener('submit', async (e) => {
 // Supprimer un produit
 async function deleteProduct(id) {
   try {
-    const res = await fetch(`${API_URL}/admin/products/${id}`, { 
-      method: 'DELETE',
-      headers: getAuthHeaders()
-    });
+    const res = await fetch(`${API_URL}/admin/products/${id}`, { method: 'DELETE' });
     const data = await res.json();
     if (data.success) {
       fetchAdminProducts();
