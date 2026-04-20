@@ -1,4 +1,4 @@
-const API_URL = 'https://backendanber.onrender.com/api'; // Modifier pour du dev local si besoin
+const API_URL = 'http://localhost:3001/api'; // Modifier pour la prod si besoin
 
 function getAuthHeaders() {
   const token = localStorage.getItem('anber_admin_token');
