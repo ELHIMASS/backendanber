@@ -1,18 +1,22 @@
 const API_URL = 'https://backendanber.onrender.com/api'; // Modifier pour du dev local si besoin
 
+function getAuthHeaders() {
+  const token = localStorage.getItem('anber_admin_token');
+  return token ? { 'Authorization': `Bearer ${token}` } : {};
+}
+
 // --- LOGIN LOGIC ---
 const loginOverlay = document.getElementById('loginOverlay');
 const adminPanel = document.getElementById('adminPanel');
 const loginBtn = document.getElementById('loginBtn');
 const logoutBtn = document.getElementById('logoutBtn');
+const emailInput = document.getElementById('adminEmail');
 const pwdInput = document.getElementById('adminPassword');
 const loginError = document.getElementById('loginError');
 
-// Simple sécurité front-end (juste pour bloquer la vue, la vraie sécu se ferait côté backend)
-const ADMIN_SECRET = "anber2026";
-
 function checkLogin() {
-  if (localStorage.getItem('anber_admin_auth') === 'true') {
+  const token = localStorage.getItem('anber_admin_token');
+  if (token) {
     loginOverlay.style.display = 'none';
     adminPanel.style.display = 'flex';
     fetchAdminProducts();
@@ -22,18 +26,32 @@ function checkLogin() {
   }
 }
 
-loginBtn.addEventListener('click', () => {
-  if (pwdInput.value === ADMIN_SECRET) {
-    localStorage.setItem('anber_admin_auth', 'true');
-    loginError.style.display = 'none';
-    checkLogin();
-  } else {
+loginBtn.addEventListener('click', async () => {
+  const email = emailInput.value;
+  const password = pwdInput.value;
+  try {
+    const response = await fetch(`${API_URL}/auth/login`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ email, password })
+    });
+    const data = await response.json();
+    if (data.success && data.user.role === 'admin') {
+      localStorage.setItem('anber_admin_token', data.token);
+      loginError.style.display = 'none';
+      checkLogin();
+    } else {
+      loginError.style.display = 'block';
+      loginError.textContent = data.error || 'Accès refusé';
+    }
+  } catch (error) {
     loginError.style.display = 'block';
+    loginError.textContent = 'Erreur de connexion';
   }
 });
 
 logoutBtn.addEventListener('click', () => {
-  localStorage.removeItem('anber_admin_auth');
+  localStorage.removeItem('anber_admin_token');
   checkLogin();
 });
 
@@ -176,6 +194,7 @@ addProductForm.addEventListener('submit', async (e) => {
 
     const res = await fetch(`${API_URL}/admin/products`, {
       method: 'POST',
+      headers: getAuthHeaders(),
       body: formData // N'utilisez pas Content-Type pour FormData (le navigateur le gère)
     });
 
@@ -223,6 +242,7 @@ editProductForm.addEventListener('submit', async (e) => {
 
     const res = await fetch(`${API_URL}/admin/products/${id}`, {
       method: 'PUT',
+      headers: getAuthHeaders(),
       body: formData
     });
 
@@ -247,7 +267,10 @@ editProductForm.addEventListener('submit', async (e) => {
 // Supprimer un produit
 async function deleteProduct(id) {
   try {
-    const res = await fetch(`${API_URL}/admin/products/${id}`, { method: 'DELETE' });
+    const res = await fetch(`${API_URL}/admin/products/${id}`, { 
+      method: 'DELETE',
+      headers: getAuthHeaders()
+    });
     const data = await res.json();
     if (data.success) {
       fetchAdminProducts();

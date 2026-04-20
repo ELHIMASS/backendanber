@@ -354,6 +354,11 @@ const authMiddleware = (req, res, next) => {
   }
 };
 
+const adminMiddleware = (req, res, next) => {
+  if (req.user.role !== 'admin') return res.status(403).json({ error: "Accès refusé" });
+  next();
+};
+
 app.post('/api/auth/register', async (req, res) => {
   try {
     const { firstName, lastName, email, password } = req.body;
@@ -380,6 +385,21 @@ app.post('/api/auth/login', async (req, res) => {
     if (!isMatch) return res.status(400).json({ error: "Mot de passe incorrect" });
     const token = jwt.sign({ id: user._id, role: user.role }, JWT_SECRET, { expiresIn: '30d' });
     res.json({ success: true, token, user: { firstName: user.firstName, lastName: user.lastName, email: user.email, points: user.points, role: user.role, userCode: user.userCode } });
+  } catch (err) {
+    res.status(500).json({ error: "Erreur serveur" });
+  }
+});
+
+// Route pour créer un admin (à supprimer après usage)
+app.post('/api/auth/create-admin', async (req, res) => {
+  try {
+    const { firstName, lastName, email, password } = req.body;
+    const existing = await User.findOne({ email });
+    if (existing) return res.status(400).json({ error: "Email déjà utilisé" });
+    const hashedPassword = await bcrypt.hash(password, 10);
+    const user = new User({ firstName, lastName, email, password: hashedPassword, role: 'admin' });
+    await user.save();
+    res.status(201).json({ success: true, message: "Admin créé" });
   } catch (err) {
     res.status(500).json({ error: "Erreur serveur" });
   }
@@ -451,7 +471,7 @@ app.put('/api/auth/address', authMiddleware, async (req, res) => {
 // Admin Routes — Clients & Orders Management
 
 // Get all clients (sans mot de passe)
-app.get('/api/admin/clients', async (req, res) => {
+app.get('/api/admin/clients', authMiddleware, adminMiddleware, async (req, res) => {
   try {
     const users = await User.find({}).select('-password').sort({ createdAt: -1 });
     res.json({ success: true, users });
@@ -461,7 +481,7 @@ app.get('/api/admin/clients', async (req, res) => {
 });
 
 // Get orders for a specific client
-app.get('/api/admin/clients/:userId/orders', async (req, res) => {
+app.get('/api/admin/clients/:userId/orders', authMiddleware, adminMiddleware, async (req, res) => {
   try {
     const orders = await Order.find({ userId: req.params.userId }).sort({ createdAt: -1 });
     res.json({ success: true, orders });
@@ -471,7 +491,7 @@ app.get('/api/admin/clients/:userId/orders', async (req, res) => {
 });
 
 // Get all orders (admin)
-app.get('/api/admin/orders', async (req, res) => {
+app.get('/api/admin/orders', authMiddleware, adminMiddleware, async (req, res) => {
   try {
     const orders = await Order.find({}).sort({ createdAt: -1 });
     res.json({ success: true, orders });
@@ -481,7 +501,7 @@ app.get('/api/admin/orders', async (req, res) => {
 });
 
 // Update order status
-app.put('/api/admin/orders/:orderId/status', async (req, res) => {
+app.put('/api/admin/orders/:orderId/status', authMiddleware, adminMiddleware, async (req, res) => {
   try {
     const { status } = req.body;
     const validStatuses = ['pending', 'confirmed', 'shipped', 'delivered'];
@@ -499,7 +519,7 @@ app.put('/api/admin/orders/:orderId/status', async (req, res) => {
 // Admin Routes (CRUD)
 
 // 1. Ajouter un produit (avec images via Cloudinary)
-app.post('/api/admin/products', upload.fields([
+app.post('/api/admin/products', authMiddleware, adminMiddleware, upload.fields([
   { name: 'image', maxCount: 1 },
   { name: 'media', maxCount: 10 }
 ]), async (req, res) => {
@@ -541,7 +561,7 @@ app.post('/api/admin/products', upload.fields([
 });
 
 // 2. Supprimer un produit
-app.delete('/api/admin/products/:id', async (req, res) => {
+app.delete('/api/admin/products/:id', authMiddleware, adminMiddleware, async (req, res) => {
   try {
     await Product.findOneAndDelete({ id: req.params.id });
     res.json({ success: true, message: 'Produit supprimé' });
@@ -551,7 +571,7 @@ app.delete('/api/admin/products/:id', async (req, res) => {
 });
 
 // 3. Modifier un produit
-app.put('/api/admin/products/:id', upload.fields([
+app.put('/api/admin/products/:id', authMiddleware, adminMiddleware, upload.fields([
   { name: 'image', maxCount: 1 },
   { name: 'media', maxCount: 10 }
 ]), async (req, res) => {
@@ -611,7 +631,7 @@ app.put('/api/admin/products/:id', upload.fields([
 });
 
 // 4. Promo codes crud
-app.get('/api/admin/promos', async (req, res) => {
+app.get('/api/admin/promos', authMiddleware, adminMiddleware, async (req, res) => {
   try {
     const promos = await Promo.find({}).sort({ createdAt: -1 });
     res.json(promos);
@@ -620,7 +640,7 @@ app.get('/api/admin/promos', async (req, res) => {
   }
 });
 
-app.post('/api/admin/promos', async (req, res) => {
+app.post('/api/admin/promos', authMiddleware, adminMiddleware, async (req, res) => {
   try {
     const { code, discountPercentage } = req.body;
     const newPromo = new Promo({ code, discountPercentage });
@@ -632,7 +652,7 @@ app.post('/api/admin/promos', async (req, res) => {
   }
 });
 
-app.delete('/api/admin/promos/:id', async (req, res) => {
+app.delete('/api/admin/promos/:id', authMiddleware, adminMiddleware, async (req, res) => {
   try {
     await Promo.findByIdAndDelete(req.params.id);
     res.json({ success: true });
