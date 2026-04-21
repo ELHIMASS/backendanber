@@ -1,4 +1,5 @@
 const API_URL = 'https://backendanber.onrender.com/api';
+let adminSessionValidated = false;
 
 function getAuthHeaders() {
   const token = localStorage.getItem('anber_admin_token');
@@ -12,11 +13,13 @@ function hasAdminToken() {
 function showLoginOverlay() {
   loginOverlay.style.display = 'flex';
   adminPanel.style.display = 'none';
+  adminSessionValidated = false;
 }
 
 function showAdminPanel() {
   loginOverlay.style.display = 'none';
   adminPanel.style.display = 'flex';
+  adminSessionValidated = true;
 }
 
 function requireAdminToken() {
@@ -27,8 +30,16 @@ function requireAdminToken() {
   return true;
 }
 
+function requireValidatedAdminSession() {
+  if (!requireAdminToken() || !adminSessionValidated) {
+    showLoginOverlay();
+    return false;
+  }
+  return true;
+}
+
 function handleUnauthorizedResponse(response) {
-  if (response.status === 401) {
+  if (response.status === 401 || response.status === 403) {
     localStorage.removeItem('anber_admin_token');
     showLoginOverlay();
     return true;
@@ -53,21 +64,25 @@ function showSection(section) {
 }
 
 navProducts.addEventListener('click', () => {
+  if (!requireValidatedAdminSession()) return;
   showSection(productsTableSection);
   fetchAdminProducts();
 });
 
 navPromos.addEventListener('click', () => {
+  if (!requireValidatedAdminSession()) return;
   showSection(promosSection);
   fetchAdminPromos();
 });
 
 navOrders.addEventListener('click', () => {
+  if (!requireValidatedAdminSession()) return;
   showSection(ordersSection);
   fetchAdminOrders();
 });
 
 navClients.addEventListener('click', () => {
+  if (!requireValidatedAdminSession()) return;
   showSection(clientsSection);
   fetchAdminClients();
 });
@@ -169,7 +184,7 @@ cancelAddBtn.addEventListener('click', () => {
 
 // --- CLIENTS ---
 async function fetchAdminClients() {
-  if (!requireAdminToken()) return;
+  if (!requireValidatedAdminSession()) return;
   const tbody = document.getElementById('clientsTableBody');
   tbody.innerHTML = '<tr><td colspan="6" class="text-center">Chargement...</td></tr>';
   try {
@@ -202,7 +217,7 @@ async function fetchAdminClients() {
 }
 
 async function showClientDetail(userId) {
-  if (!requireAdminToken()) return;
+  if (!requireValidatedAdminSession()) return;
   try {
     const res = await fetch(`${API_URL}/admin/clients/${userId}/orders`, {
       headers: getAuthHeaders()
@@ -221,7 +236,7 @@ async function showClientDetail(userId) {
   }
 }
 async function fetchAdminOrders() {
-  if (!requireAdminToken()) return;
+  if (!requireValidatedAdminSession()) return;
   const container = document.getElementById('ordersListContainer');
   container.innerHTML = '<p style="color: var(--text-muted); text-align: center; padding: 40px;">Chargement...</p>';
   try {
@@ -267,7 +282,7 @@ async function fetchAdminOrders() {
 }
 
 async function updateOrderStatus(orderId, status) {
-  if (!requireAdminToken()) return;
+  if (!requireValidatedAdminSession()) return;
   try {
     const res = await fetch(`${API_URL}/admin/orders/${orderId}/status`, {
       method: 'PUT',
@@ -285,7 +300,7 @@ async function updateOrderStatus(orderId, status) {
   }
 }
 async function fetchAdminPromos() {
-  if (!requireAdminToken()) return;
+  if (!requireValidatedAdminSession()) return;
   const tbody = document.getElementById('promosTableBody');
   tbody.innerHTML = '<tr><td colspan="3" class="text-center">Chargement...</td></tr>';
   try {
@@ -322,7 +337,7 @@ async function fetchAdminPromos() {
 }
 
 async function deletePromo(id) {
-  if (!requireAdminToken()) return;
+  if (!requireValidatedAdminSession()) return;
   try {
     const res = await fetch(`${API_URL}/admin/promos/${id}`, {
       method: 'DELETE',
@@ -366,6 +381,7 @@ const tbody = document.getElementById('productsTableBody');
 const productCount = document.getElementById('productCount');
 
 async function fetchAdminProducts() {
+  if (!requireValidatedAdminSession()) return;
   tbody.innerHTML = '<tr><td colspan="5" class="text-center">Chargement...</td></tr>';
   try {
     const res = await fetch(`${API_URL}/products`);
@@ -545,7 +561,7 @@ editProductForm.addEventListener('submit', async (e) => {
 
 // Supprimer un produit
 async function deleteProduct(id) {
-  if (!requireAdminToken()) return;
+  if (!requireValidatedAdminSession()) return;
   try {
     const res = await fetch(`${API_URL}/admin/products/${id}`, {
       method: 'DELETE',
