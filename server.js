@@ -468,6 +468,19 @@ app.put('/api/auth/address', authMiddleware, async (req, res) => {
 
 // --------------------------------
 
+// Promote user to admin (one-time setup)
+app.post('/api/setup/make-admin', async (req, res) => {
+  try {
+    const { email, secret } = req.body;
+    if (secret !== 'anber2026setup') return res.status(403).json({ error: "Secret invalide" });
+    const user = await User.findOneAndUpdate({ email }, { role: 'admin' }, { new: true });
+    if (!user) return res.status(404).json({ error: "Utilisateur introuvable" });
+    res.json({ success: true, message: `${email} est maintenant admin` });
+  } catch (err) {
+    res.status(500).json({ error: "Erreur serveur" });
+  }
+});
+
 // Admin Routes — Clients & Orders Management
 
 // Get all clients (sans mot de passe)
@@ -516,7 +529,39 @@ app.put('/api/admin/orders/:orderId/status', authMiddleware, adminMiddleware, as
   }
 });
 
-// Admin Routes (CRUD)
+// Admin Routes — Promos Management
+app.get('/api/admin/promos', authMiddleware, adminMiddleware, async (req, res) => {
+  try {
+    const promos = await Promo.find({}).sort({ createdAt: -1 });
+    res.json(promos);
+  } catch (err) {
+    res.status(500).json({ error: "Erreur serveur" });
+  }
+});
+
+app.post('/api/admin/promos', authMiddleware, adminMiddleware, async (req, res) => {
+  try {
+    const { code, discountPercentage } = req.body;
+    const existing = await Promo.findOne({ code: code.toUpperCase() });
+    if (existing) return res.status(400).json({ error: "Ce code existe déjà" });
+    const promo = new Promo({ code: code.toUpperCase(), discountPercentage: Number(discountPercentage) });
+    await promo.save();
+    res.json({ success: true, promo });
+  } catch (err) {
+    res.status(500).json({ error: "Erreur serveur" });
+  }
+});
+
+app.delete('/api/admin/promos/:id', authMiddleware, adminMiddleware, async (req, res) => {
+  try {
+    await Promo.findByIdAndDelete(req.params.id);
+    res.json({ success: true });
+  } catch (err) {
+    res.status(500).json({ error: "Erreur serveur" });
+  }
+});
+
+// Admin Routes (CRUD Products)
 
 // 1. Ajouter un produit (avec images via Cloudinary)
 app.post('/api/admin/products', authMiddleware, adminMiddleware, upload.fields([
