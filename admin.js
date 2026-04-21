@@ -5,10 +5,32 @@ function getAuthHeaders() {
   return token ? { 'Authorization': `Bearer ${token}` } : {};
 }
 
+function hasAdminToken() {
+  return Boolean(localStorage.getItem('anber_admin_token'));
+}
+
+function showLoginOverlay() {
+  loginOverlay.style.display = 'flex';
+  adminPanel.style.display = 'none';
+}
+
+function showAdminPanel() {
+  loginOverlay.style.display = 'none';
+  adminPanel.style.display = 'flex';
+}
+
+function requireAdminToken() {
+  if (!hasAdminToken()) {
+    showLoginOverlay();
+    return false;
+  }
+  return true;
+}
+
 function handleUnauthorizedResponse(response) {
   if (response.status === 401) {
     localStorage.removeItem('anber_admin_token');
-    checkLogin();
+    showLoginOverlay();
     return true;
   }
   return false;
@@ -57,15 +79,35 @@ const emailInput = document.getElementById('adminEmail');
 const pwdInput = document.getElementById('adminPassword');
 const loginError = document.getElementById('loginError');
 
-function checkLogin() {
+async function checkLogin() {
   const token = localStorage.getItem('anber_admin_token');
-  if (token) {
-    loginOverlay.style.display = 'none';
-    adminPanel.style.display = 'flex';
+  if (!token) {
+    showLoginOverlay();
+    return;
+  }
+
+  try {
+    const res = await fetch(`${API_URL}/auth/me`, {
+      headers: getAuthHeaders()
+    });
+
+    if (!res.ok) {
+      localStorage.removeItem('anber_admin_token');
+      showLoginOverlay();
+      return;
+    }
+
+    const data = await res.json();
+    if (!data.success || !data.user || data.user.role !== 'admin') {
+      localStorage.removeItem('anber_admin_token');
+      showLoginOverlay();
+      return;
+    }
+
+    showAdminPanel();
     fetchAdminProducts();
-  } else {
-    loginOverlay.style.display = 'flex';
-    adminPanel.style.display = 'none';
+  } catch (error) {
+    showLoginOverlay();
   }
 }
 
@@ -82,7 +124,7 @@ loginBtn.addEventListener('click', async () => {
     if (data.success && data.user.role === 'admin') {
       localStorage.setItem('anber_admin_token', data.token);
       loginError.style.display = 'none';
-      checkLogin();
+      await checkLogin();
     } else {
       loginError.style.display = 'block';
       loginError.textContent = data.error || 'Accès refusé';
@@ -95,7 +137,7 @@ loginBtn.addEventListener('click', async () => {
 
 logoutBtn.addEventListener('click', () => {
   localStorage.removeItem('anber_admin_token');
-  checkLogin();
+  showLoginOverlay();
 });
 
 // Init check moved to end of file
@@ -127,6 +169,7 @@ cancelAddBtn.addEventListener('click', () => {
 
 // --- CLIENTS ---
 async function fetchAdminClients() {
+  if (!requireAdminToken()) return;
   const tbody = document.getElementById('clientsTableBody');
   tbody.innerHTML = '<tr><td colspan="6" class="text-center">Chargement...</td></tr>';
   try {
@@ -159,6 +202,7 @@ async function fetchAdminClients() {
 }
 
 async function showClientDetail(userId) {
+  if (!requireAdminToken()) return;
   try {
     const res = await fetch(`${API_URL}/admin/clients/${userId}/orders`, {
       headers: getAuthHeaders()
@@ -177,6 +221,7 @@ async function showClientDetail(userId) {
   }
 }
 async function fetchAdminOrders() {
+  if (!requireAdminToken()) return;
   const container = document.getElementById('ordersListContainer');
   container.innerHTML = '<p style="color: var(--text-muted); text-align: center; padding: 40px;">Chargement...</p>';
   try {
@@ -222,6 +267,7 @@ async function fetchAdminOrders() {
 }
 
 async function updateOrderStatus(orderId, status) {
+  if (!requireAdminToken()) return;
   try {
     const res = await fetch(`${API_URL}/admin/orders/${orderId}/status`, {
       method: 'PUT',
@@ -239,6 +285,7 @@ async function updateOrderStatus(orderId, status) {
   }
 }
 async function fetchAdminPromos() {
+  if (!requireAdminToken()) return;
   const tbody = document.getElementById('promosTableBody');
   tbody.innerHTML = '<tr><td colspan="3" class="text-center">Chargement...</td></tr>';
   try {
@@ -275,6 +322,7 @@ async function fetchAdminPromos() {
 }
 
 async function deletePromo(id) {
+  if (!requireAdminToken()) return;
   try {
     const res = await fetch(`${API_URL}/admin/promos/${id}`, {
       method: 'DELETE',
@@ -497,6 +545,7 @@ editProductForm.addEventListener('submit', async (e) => {
 
 // Supprimer un produit
 async function deleteProduct(id) {
+  if (!requireAdminToken()) return;
   try {
     const res = await fetch(`${API_URL}/admin/products/${id}`, {
       method: 'DELETE',
