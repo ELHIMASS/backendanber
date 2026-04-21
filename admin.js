@@ -1,11 +1,45 @@
-const API_URL = 'https://backendanber.onrender.com/api'; // Modifier pour du dev local si besoin
+const API_URL = 'http://localhost:3001/api'; // Modifier pour la prod si besoin
 
 function getAuthHeaders() {
   const token = localStorage.getItem('anber_admin_token');
   return token ? { 'Authorization': `Bearer ${token}` } : {};
 }
 
-// --- LOGIN LOGIC ---
+// --- NAVIGATION ---
+const navProducts = document.getElementById('navProducts');
+const navPromos = document.getElementById('navPromos');
+const navOrders = document.getElementById('navOrders');
+const navClients = document.getElementById('navClients');
+
+const productsTableSection = document.getElementById('productsTableSection');
+const promosSection = document.getElementById('promosSection');
+const ordersSection = document.getElementById('ordersSection');
+const clientsSection = document.getElementById('clientsSection');
+
+function showSection(section) {
+  [productsTableSection, promosSection, ordersSection, clientsSection].forEach(s => s.style.display = 'none');
+  section.style.display = 'block';
+}
+
+navProducts.addEventListener('click', () => {
+  showSection(productsTableSection);
+  fetchAdminProducts();
+});
+
+navPromos.addEventListener('click', () => {
+  showSection(promosSection);
+  fetchAdminPromos();
+});
+
+navOrders.addEventListener('click', () => {
+  showSection(ordersSection);
+  fetchAdminOrders();
+});
+
+navClients.addEventListener('click', () => {
+  showSection(clientsSection);
+  fetchAdminClients();
+});
 const loginOverlay = document.getElementById('loginOverlay');
 const adminPanel = document.getElementById('adminPanel');
 const loginBtn = document.getElementById('loginBtn');
@@ -82,7 +116,189 @@ cancelAddBtn.addEventListener('click', () => {
   addProductForm.reset();
 });
 
-// --- DATA LOGIC ---
+// --- CLIENTS ---
+async function fetchAdminClients() {
+  const tbody = document.getElementById('clientsTableBody');
+  tbody.innerHTML = '<tr><td colspan="6" class="text-center">Chargement...</td></tr>';
+  try {
+    const res = await fetch(`${API_URL}/admin/clients`, {
+      headers: getAuthHeaders()
+    });
+    const data = await res.json();
+    const users = data.success ? data.users : [];
+    tbody.innerHTML = '';
+    if (users.length === 0) {
+      tbody.innerHTML = '<tr><td colspan="6" class="text-center">Aucun client.</td></tr>';
+      return;
+    }
+    users.forEach(user => {
+      const tr = document.createElement('tr');
+      tr.innerHTML = `
+        <td>${user.userCode}</td>
+        <td>${user.firstName} ${user.lastName}</td>
+        <td>${user.email}</td>
+        <td>${user.points}</td>
+        <td>${new Date(user.createdAt).toLocaleDateString('fr-FR')}</td>
+        <td><button class="action-btn" onclick="showClientDetail('${user._id}')">Voir détails</button></td>
+      `;
+      tbody.appendChild(tr);
+    });
+  } catch (err) {
+    tbody.innerHTML = '<tr><td colspan="6" class="text-center">Erreur de chargement.</td></tr>';
+  }
+}
+
+async function showClientDetail(userId) {
+  try {
+    const res = await fetch(`${API_URL}/admin/clients/${userId}/orders`, {
+      headers: getAuthHeaders()
+    });
+    const orders = await res.json();
+    // Assuming orders is an array
+    const panel = document.getElementById('clientDetailPanel');
+    // Populate panel with user details and orders
+    // For simplicity, just show orders
+    const ordersList = document.getElementById('clientOrdersList');
+    ordersList.innerHTML = orders.map(order => `<p>Commande ${order.orderNumber} - ${order.totalAmount} MAD</p>`).join('');
+    panel.style.display = 'block';
+  } catch (err) {
+    alert("Erreur de chargement des détails");
+  }
+}
+async function fetchAdminOrders() {
+  const container = document.getElementById('ordersListContainer');
+  container.innerHTML = '<p style="color: var(--text-muted); text-align: center; padding: 40px;">Chargement...</p>';
+  try {
+    const res = await fetch(`${API_URL}/admin/orders`, {
+      headers: getAuthHeaders()
+    });
+    const data = await res.json();
+    const orders = data.success ? data : [];
+    container.innerHTML = '';
+    if (orders.length === 0) {
+      container.innerHTML = '<p style="color: var(--text-muted); text-align: center; padding: 40px;">Aucune commande.</p>';
+      return;
+    }
+    orders.forEach(order => {
+      const orderDiv = document.createElement('div');
+      orderDiv.className = 'order-card';
+      orderDiv.innerHTML = `
+        <div class="order-header">
+          <h3>Commande ${order.orderNumber}</h3>
+          <span class="order-status status-${order.status}">${order.status}</span>
+        </div>
+        <div class="order-details">
+          <p><strong>Client:</strong> ${order.customer.firstName} ${order.customer.lastName}</p>
+          <p><strong>Email:</strong> ${order.customer.email}</p>
+          <p><strong>Total:</strong> ${order.totalAmount} MAD</p>
+          <p><strong>Date:</strong> ${new Date(order.createdAt).toLocaleDateString('fr-FR')}</p>
+        </div>
+        <div class="order-actions">
+          <select onchange="updateOrderStatus('${order._id}', this.value)">
+            <option value="pending" ${order.status === 'pending' ? 'selected' : ''}>En attente</option>
+            <option value="confirmed" ${order.status === 'confirmed' ? 'selected' : ''}>Confirmée</option>
+            <option value="shipped" ${order.status === 'shipped' ? 'selected' : ''}>Expédiée</option>
+            <option value="delivered" ${order.status === 'delivered' ? 'selected' : ''}>Livrée</option>
+          </select>
+        </div>
+      `;
+      container.appendChild(orderDiv);
+    });
+  } catch (err) {
+    container.innerHTML = '<p style="color: var(--text-muted); text-align: center; padding: 40px;">Erreur de chargement.</p>';
+  }
+}
+
+async function updateOrderStatus(orderId, status) {
+  try {
+    const res = await fetch(`${API_URL}/admin/orders/${orderId}/status`, {
+      method: 'PUT',
+      headers: { ...getAuthHeaders(), 'Content-Type': 'application/json' },
+      body: JSON.stringify({ status })
+    });
+    const data = await res.json();
+    if (data.success) {
+      fetchAdminOrders();
+    } else {
+      alert("Erreur: " + data.error);
+    }
+  } catch (err) {
+    alert("Erreur réseau");
+  }
+}
+async function fetchAdminPromos() {
+  const tbody = document.getElementById('promosTableBody');
+  tbody.innerHTML = '<tr><td colspan="3" class="text-center">Chargement...</td></tr>';
+  try {
+    const res = await fetch(`${API_URL}/admin/promos`, {
+      headers: getAuthHeaders()
+    });
+    const promos = await res.json();
+    tbody.innerHTML = '';
+    if (promos.length === 0) {
+      tbody.innerHTML = '<tr><td colspan="3" class="text-center">Aucun code promo.</td></tr>';
+      return;
+    }
+    promos.forEach(promo => {
+      const tr = document.createElement('tr');
+      tr.innerHTML = `
+        <td><strong>${promo.code}</strong></td>
+        <td>${promo.discountPercentage}%</td>
+        <td><button class="delete-btn" data-id="${promo._id}">Supprimer</button></td>
+      `;
+      tbody.appendChild(tr);
+    });
+    document.querySelectorAll('.delete-btn').forEach(btn => {
+      btn.addEventListener('click', async (e) => {
+        if (confirm('Supprimer ce code promo ?')) {
+          const id = e.target.getAttribute('data-id');
+          await deletePromo(id);
+        }
+      });
+    });
+  } catch (err) {
+    tbody.innerHTML = '<tr><td colspan="3" class="text-center">Erreur de chargement.</td></tr>';
+  }
+}
+
+async function deletePromo(id) {
+  try {
+    const res = await fetch(`${API_URL}/admin/promos/${id}`, {
+      method: 'DELETE',
+      headers: getAuthHeaders()
+    });
+    const data = await res.json();
+    if (data.success) {
+      fetchAdminPromos();
+    } else {
+      alert("Erreur: " + data.error);
+    }
+  } catch (err) {
+    alert("Erreur réseau");
+  }
+}
+
+document.getElementById('addPromoForm').addEventListener('submit', async (e) => {
+  e.preventDefault();
+  const code = document.getElementById('promoCodeInput').value.toUpperCase();
+  const discountPercentage = document.getElementById('promoPercentageInput').value;
+  try {
+    const res = await fetch(`${API_URL}/admin/promos`, {
+      method: 'POST',
+      headers: { ...getAuthHeaders(), 'Content-Type': 'application/json' },
+      body: JSON.stringify({ code, discountPercentage })
+    });
+    const data = await res.json();
+    if (data.success) {
+      document.getElementById('addPromoForm').reset();
+      fetchAdminPromos();
+    } else {
+      alert("Erreur: " + data.error);
+    }
+  } catch (err) {
+    alert("Erreur réseau");
+  }
+});
 const tbody = document.getElementById('productsTableBody');
 const productCount = document.getElementById('productCount');
 
@@ -280,5 +496,11 @@ async function deleteProduct(id) {
   }
 }
 
-// Init check
-checkLogin();
+document.getElementById('clientSearch').addEventListener('input', (e) => {
+  const query = e.target.value.toLowerCase();
+  const rows = document.querySelectorAll('#clientsTableBody tr');
+  rows.forEach(row => {
+    const text = row.textContent.toLowerCase();
+    row.style.display = text.includes(query) ? '' : 'none';
+  });
+});
