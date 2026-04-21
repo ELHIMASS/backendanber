@@ -504,3 +504,6 @@ document.getElementById('clientSearch').addEventListener('input', (e) => {
     row.style.display = text.includes(query) ? '' : 'none';
   });
 });
+
+// Init
+checkLogin();
