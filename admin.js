@@ -1,8 +1,20 @@
-const API_URL = 'http://localhost:3001/api'; // Modifier pour la prod si besoin
+const isLocalhost = ['localhost', '127.0.0.1'].includes(window.location.hostname);
+const API_URL = isLocalhost
+  ? 'http://localhost:3001/api'
+  : 'https://backendanber.onrender.com/api';
 
 function getAuthHeaders() {
   const token = localStorage.getItem('anber_admin_token');
   return token ? { 'Authorization': `Bearer ${token}` } : {};
+}
+
+function handleUnauthorizedResponse(response) {
+  if (response.status === 401) {
+    localStorage.removeItem('anber_admin_token');
+    checkLogin();
+    return true;
+  }
+  return false;
 }
 
 // --- NAVIGATION ---
@@ -124,6 +136,7 @@ async function fetchAdminClients() {
     const res = await fetch(`${API_URL}/admin/clients`, {
       headers: getAuthHeaders()
     });
+    if (handleUnauthorizedResponse(res)) return;
     const data = await res.json();
     const users = data.success ? data.users : [];
     tbody.innerHTML = '';
@@ -153,6 +166,7 @@ async function showClientDetail(userId) {
     const res = await fetch(`${API_URL}/admin/clients/${userId}/orders`, {
       headers: getAuthHeaders()
     });
+    if (handleUnauthorizedResponse(res)) return;
     const orders = await res.json();
     // Assuming orders is an array
     const panel = document.getElementById('clientDetailPanel');
@@ -172,6 +186,7 @@ async function fetchAdminOrders() {
     const res = await fetch(`${API_URL}/admin/orders`, {
       headers: getAuthHeaders()
     });
+    if (handleUnauthorizedResponse(res)) return;
     const data = await res.json();
     const orders = data.success ? data : [];
     container.innerHTML = '';
@@ -233,6 +248,7 @@ async function fetchAdminPromos() {
     const res = await fetch(`${API_URL}/admin/promos`, {
       headers: getAuthHeaders()
     });
+    if (handleUnauthorizedResponse(res)) return;
     const promos = await res.json();
     tbody.innerHTML = '';
     if (promos.length === 0) {
@@ -267,6 +283,7 @@ async function deletePromo(id) {
       method: 'DELETE',
       headers: getAuthHeaders()
     });
+    if (handleUnauthorizedResponse(res)) return;
     const data = await res.json();
     if (data.success) {
       fetchAdminPromos();
@@ -288,6 +305,7 @@ document.getElementById('addPromoForm').addEventListener('submit', async (e) => 
       headers: { ...getAuthHeaders(), 'Content-Type': 'application/json' },
       body: JSON.stringify({ code, discountPercentage })
     });
+    if (handleUnauthorizedResponse(res)) return;
     const data = await res.json();
     if (data.success) {
       document.getElementById('addPromoForm').reset();
@@ -483,7 +501,11 @@ editProductForm.addEventListener('submit', async (e) => {
 // Supprimer un produit
 async function deleteProduct(id) {
   try {
-    const res = await fetch(`${API_URL}/admin/products/${id}`, { method: 'DELETE' });
+    const res = await fetch(`${API_URL}/admin/products/${id}`, {
+      method: 'DELETE',
+      headers: getAuthHeaders()
+    });
+    if (handleUnauthorizedResponse(res)) return;
     const data = await res.json();
     if (data.success) {
       fetchAdminProducts();
