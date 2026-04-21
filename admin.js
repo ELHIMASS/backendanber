@@ -1,7 +1,4 @@
-const isLocalhost = ['localhost', '127.0.0.1'].includes(window.location.hostname);
-const API_URL = isLocalhost
-  ? 'http://localhost:3001/api'
-  : 'https://backendanber.onrender.com/api';
+const API_URL = 'https://backendanber.onrender.com/api';
 
 function getAuthHeaders() {
   const token = localStorage.getItem('anber_admin_token');
